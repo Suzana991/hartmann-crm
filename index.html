@@ -228,15 +228,15 @@
       width: 100%;
       table-layout: fixed;
       border-collapse: collapse;
-      min-width: 1250px;
-      font-size: 0.98rem;
+      min-width: 850px;
+      font-size: 0.95rem;
     }
     thead th {
       text-align: left;
       padding: 8px 12px;
       color: var(--subtext);
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
       overflow: hidden;
@@ -249,22 +249,23 @@
       word-break: break-word;
       overflow-wrap: anywhere;
     }
-    tbody tr:hover { background: var(--row-hover); }
-    .contact-line { display: block; font-size: 0.9rem; margin: 2px 0; }
-    .contact-line .cl-name { font-weight: 600; }
-    .contact-line .cl-title { color: var(--subtext); font-style: italic; }
-    .contact-line .cl-email { color: var(--accent); overflow-wrap: anywhere; }
-    .who-select {
-      width: 100%;
-      max-width: 110px;
-      padding: 3px 4px;
-      font-size: 0.92rem;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--input-bg);
-    }
-    .who-select:hover, .who-select:focus { border-color: var(--accent); outline: none; }
+    tbody tr.institution-row:hover { background: var(--row-hover); }
+    tbody tr.contact-detail-row { background: var(--panel); }
+    tbody tr.contact-detail-row td { padding: 6px 12px 6px 36px; font-size: 0.9rem; border-top: 1px solid var(--border); }
+    .reached-summary { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+    .reached-summary.all { background: rgba(63,185,132,0.15); color: var(--success); border: 1px solid rgba(63,185,132,0.5); }
+    .reached-summary.partial { background: rgba(244,185,66,0.15); color: var(--warning); border: 1px solid rgba(244,185,66,0.5); }
+    .reached-summary.none { background: transparent; color: var(--subtext); border: 1px solid var(--border); }
+    .expand-btn { cursor: pointer; user-select: none; display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 4px; margin-right: 6px; color: var(--subtext); transition: background 0.15s; }
+    .expand-btn:hover { background: var(--row-hover); color: var(--text); }
+    .contact-detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 8px; margin-top: 6px; }
+    .contact-detail-grid > div { display: flex; flex-direction: column; gap: 2px; }
+    .contact-detail-grid label { font-size: 0.75rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
+    .contact-detail-grid select, .contact-detail-grid input { padding: 4px 6px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: var(--input-bg); color: var(--text); }
+    .contact-detail-grid select:focus, .contact-detail-grid input:focus { outline: none; border-color: var(--accent); }
+    .contact-name-cell { font-weight: 600; }
+    .contact-title-cell { color: var(--subtext); font-style: italic; font-size: 0.85rem; }
+    .contact-email-cell { color: var(--accent); font-size: 0.85rem; overflow-wrap: anywhere; }
     .tag {
       display: inline-flex;
       align-items: center;
@@ -518,17 +519,12 @@
         <div class="table-scroll">
           <table>
             <colgroup>
-              <col style="width: 120px" />
-              <col style="width: 150px" />
-              <col style="width: 80px" />
-              <col style="width: 200px" />
-              <col style="width: 70px" />
+              <col style="width: 130px" />
+              <col style="width: 180px" />
               <col style="width: 90px" />
-              <col style="width: 110px" />
+              <col style="width: 1fr" />
               <col style="width: 80px" />
               <col style="width: 80px" />
-              <col style="width: 170px" />
-              <col style="width: 100px" />
             </colgroup>
             <thead>
               <tr>
@@ -537,11 +533,6 @@
                 <th>Type</th>
                 <th>Contacts</th>
                 <th>Importance</th>
-                <th>Who reached out</th>
-                <th>Date reached out</th>
-                <th>Response</th>
-                <th>Moving forward</th>
-                <th>Next steps</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -583,7 +574,7 @@
             </select>
           </div>
           <div class="contacts-container">
-            <label>Contacts (full name + email)</label>
+            <label>Contacts (full name, title, email + outreach)</label>
             <div id="contacts-list"></div>
             <div>
               <button class="ghost-btn" type="button" id="add-contact-btn">+ Add contact</button>
@@ -597,42 +588,6 @@
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
             </select>
-          </div>
-          <div class="field">
-            <label for="who-reached-out">Who reached out</label>
-            <select id="who-reached-out" name="whoReachedOut" required>
-              <option value="" disabled selected>Select</option>
-              <option value="Suzana">Suzana</option>
-              <option value="Bruno">Bruno</option>
-              <option value="Both">Both</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="date-reached-out">Date reached out</label>
-            <input id="date-reached-out" name="dateReachedOut" type="date" />
-          </div>
-          <div class="field">
-            <label for="response">Response</label>
-            <select id="response" name="response">
-              <option value="Pending">Pending</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-              <option value="Follow up">Follow up</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="moving-forward">Moving forward</label>
-            <select id="moving-forward" name="movingForward">
-              <option value="TBD">TBD</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-              <option value="On hold">On hold</option>
-            </select>
-          </div>
-          <div class="field full">
-            <label for="next-steps">Next steps</label>
-            <textarea id="next-steps" name="nextSteps" placeholder="e.g. Send deck by Friday, call next week..."></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -727,6 +682,9 @@
     let searchTerm = "";
     let outreachFilter = "all";
     let lastSavedHash = null;
+    let expandedInstitutions = new Set();
+
+    const REPS = ["Suzana", "Bruno", "Both", "Other"];
 
     /* ---------- GitHub persistence ---------- */
 
@@ -859,7 +817,24 @@
       const out = [];
       combined.forEach(function (c) {
         const k = (c && c.email) ? "e:" + normalizeKey(c.email) : "n:" + normalizeKey(c.name);
-        if (!map[k]) { map[k] = true; out.push(c); }
+        if (!map[k]) {
+          map[k] = c;
+          out.push(c);
+        } else {
+          // Merge outreach fields from the new contact (listB takes precedence for non-empty values)
+          const existing = out[out.findIndex(function (x) { 
+            const xk = (x && x.email) ? "e:" + normalizeKey(x.email) : "n:" + normalizeKey(x.name);
+            return xk === k;
+          })];
+          if (existing) {
+            if (c.reachedOut !== undefined) existing.reachedOut = c.reachedOut;
+            if (c.whoReachedOut) existing.whoReachedOut = c.whoReachedOut;
+            if (c.dateReachedOut) existing.dateReachedOut = c.dateReachedOut;
+            if (c.response) existing.response = c.response;
+            if (c.movingForward) existing.movingForward = c.movingForward;
+            if (c.nextSteps) existing.nextSteps = c.nextSteps;
+          }
+        }
       });
       return out;
     }
@@ -1036,10 +1011,10 @@
         emptyState.querySelectorAll("p")[1].textContent = "Create a project from the left panel to get started.";
         return;
       }
-      const count = (project.institutions || []).length;
-      const reachedCount = (project.institutions || []).filter(function (i) { return !!i.reachedOut; }).length;
+      const totalContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).length; }, 0);
+      const reachedContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).filter(function (c) { return c.reachedOut; }).length; }, 0);
       activeProjectTitle.textContent = project.name;
-      activeProjectSubtitle.textContent = count + " institution" + (count === 1 ? "" : "s") + " tracked &middot; " + reachedCount + " reached out";
+      activeProjectSubtitle.textContent = count + " institution" + (count === 1 ? "" : "s") + " · " + totalContacts + " contacts · " + reachedContacts + " reached out";
       renameProjectBtn.disabled = false;
       deleteProjectBtn.disabled = false;
       addInstitutionBtn.disabled = false;
@@ -1049,13 +1024,14 @@
       institutionsTbody.innerHTML = "";
       const list = (project.institutions || []);
       const filtered = list.filter(function (inst) {
-        if (outreachFilter === "reached" && !inst.reachedOut) return false;
-        if (outreachFilter === "not" && inst.reachedOut) return false;
+        if (outreachFilter === "reached" && !(inst.contacts || []).some(function (c) { return c.reachedOut; })) return false;
+        if (outreachFilter === "not" && (inst.contacts || []).every(function (c) { return c.reachedOut; })) return false;
         if (!searchTerm) return true;
         const hay = [
-          inst.companyName, inst.companyType, inst.importance, inst.whoReachedOut,
-          inst.response, inst.movingForward, inst.nextSteps, inst.dateReachedOut
-        ].join(" ") + " " + (inst.contacts || []).map(function (c) { return (c.name || "") + " " + (c.email || ""); }).join(" ");
+          inst.companyName, inst.companyType, inst.importance
+        ].join(" ") + " " + (inst.contacts || []).map(function (c) {
+          return (c.name || "") + " " + (c.email || "") + " " + (c.whoReachedOut || "") + " " + (c.response || "") + " " + (c.movingForward || "") + " " + (c.nextSteps || "");
+        }).join(" ");
         return hay.toLowerCase().indexOf(searchTerm) !== -1;
       });
 
@@ -1076,37 +1052,90 @@
       emptyState.hidden = true;
 
       for (const inst of filtered) {
+        const instReached = (inst.contacts || []).filter(function (c) { return c.reachedOut; }).length;
+        const instTotal = (inst.contacts || []).length;
+        let summaryClass = "none", summaryText = "0/0";
+        if (instTotal === 0) {
+          summaryClass = "none"; summaryText = "No contacts";
+        } else if (instReached === instTotal) {
+          summaryClass = "all"; summaryText = instReached + "/" + instTotal;
+        } else if (instReached > 0) {
+          summaryClass = "partial"; summaryText = instReached + "/" + instTotal;
+        } else {
+          summaryClass = "none"; summaryText = "0/" + instTotal;
+        }
+        const isExpanded = expandedInstitutions.has(inst.id);
+        const expandIcon = isExpanded ? "&#9660;" : "&#9654;";
+
+        // Institution row
         const tr = document.createElement("tr");
-        if (inst.reachedOut) tr.className = "reached-out";
-        else tr.className = "not-reached";
-        const contactsHtml = (inst.contacts && inst.contacts.length)
-          ? inst.contacts.map(function (c) {
+        tr.className = "institution-row";
+        tr.dataset.instId = inst.id;
+        const contactsPreview = (inst.contacts && inst.contacts.length)
+          ? inst.contacts.slice(0, 2).map(function (c) {
               return '<span class="contact-line">' +
                 '<span class="cl-name">' + escapeHtml(c.name || "?") + "</span>" +
                 (c.title ? ' <span class="cl-title">' + escapeHtml(c.title) + "</span>" : "") +
                 (c.email ? ' <span class="cl-email">' + escapeHtml(c.email) + "</span>" : "") +
                 "</span>";
-            }).join("")
-          : '<span class="contact-line">' + escapeHtml(inst.contactInfo || "—") + "</span>";
-        const reachedPill = inst.reachedOut
-          ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
-          : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
+            }).join("") + (inst.contacts.length > 2 ? ' <span class="contact-line" style="color:var(--subtext)">+' + (inst.contacts.length - 2) + ' more</span>' : "")
+          : '<span class="contact-line" style="color:var(--subtext)">No contacts</span>';
         tr.innerHTML =
-          "<td>" + reachedPill + "</td>" +
+          '<td><span class="reached-summary ' + summaryClass + '" title="Click to expand">' + summaryText + '</span></td>' +
           "<td>" + escapeHtml(inst.companyName || "—") + "</td>" +
           '<td><span class="tag">' + escapeHtml(inst.companyType || "—") + "</span></td>" +
-          "<td>" + contactsHtml + "</td>" +
+          '<td><span class="expand-btn" data-action="toggle-expand" data-id="' + escapeHtml(inst.id) + '" title="Expand contacts">' + expandIcon + "</span>" + contactsPreview + "</td>" +
           "<td>" + renderImportance(inst.importance) + "</td>" +
-          "<td>" + whoSelectHtml(inst) + "</td>" +
-          "<td>" + (inst.dateReachedOut || "—") + "</td>" +
-          "<td>" + renderResponse(inst.response) + "</td>" +
-          "<td>" + renderMovingForward(inst.movingForward) + "</td>" +
-          "<td>" + escapeHtml(inst.nextSteps || "—").replace(/\n/g, "<br>") + "</td>" +
           '<td><div class="row-actions">' +
           '<button class="ghost-btn" data-action="edit" data-id="' + escapeHtml(inst.id) + '">Edit</button>' +
           '<button class="ghost-btn" data-action="delete" data-id="' + escapeHtml(inst.id) + '">Delete</button>' +
           "</div></td>";
         institutionsTbody.appendChild(tr);
+
+        // Contact detail rows (initially hidden)
+        if (isExpanded && inst.contacts && inst.contacts.length) {
+          inst.contacts.forEach(function (contact, ci) {
+            const detailTr = document.createElement("tr");
+            detailTr.className = "contact-detail-row";
+            detailTr.dataset.instId = inst.id;
+            detailTr.dataset.contactIdx = ci;
+            var cReached = contact.reachedOut ? "reached-out" : "not-reached";
+            var reachedBtn = contact.reachedOut
+              ? '<button class="reached-pill is-reached" data-action="toggle-contact-reached" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" title="Mark as not reached">&check;</button>'
+              : '<button class="reached-pill" data-action="toggle-contact-reached" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" title="Mark as reached"></button>';
+            var whoSel = '<select class="who-select" data-action="contact-who" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
+              '<option value=""' + (!contact.whoReachedOut ? " selected" : "") + '>—</option>' +
+              REPS.map(function (r) { return '<option value="' + r + '"' + (contact.whoReachedOut === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
+              '</select>';
+            var dateVal = contact.dateReachedOut || "";
+            var respSel = '<select class="who-select" data-action="contact-response" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
+              '<option value="Pending"' + (contact.response === "Pending" || !contact.response ? " selected" : "") + '>Pending</option>' +
+              '<option value="Yes"' + (contact.response === "Yes" ? " selected" : "") + '>Yes</option>' +
+              '<option value="No"' + (contact.response === "No" ? " selected" : "") + '>No</option>' +
+              '<option value="Follow up"' + (contact.response === "Follow up" ? " selected" : "") + '>Follow up</option>' +
+              '</select>';
+            var mfSel = '<select class="who-select" data-action="contact-moving" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
+              '<option value="TBD"' + (contact.movingForward === "TBD" || !contact.movingForward ? " selected" : "") + '>TBD</option>' +
+              '<option value="Yes"' + (contact.movingForward === "Yes" ? " selected" : "") + '>Yes</option>' +
+              '<option value="No"' + (contact.movingForward === "No" ? " selected" : "") + '>No</option>' +
+              '<option value="On hold"' + (contact.movingForward === "On hold" ? " selected" : "") + '>On hold</option>' +
+              '</select>';
+            var nextVal = escapeHtml(contact.nextSteps || "");
+            detailTr.innerHTML =
+              '<td colspan="6">' +
+              '<div class="contact-detail-grid">' +
+              '<div><label>Contact</label><div class="contact-name-cell">' + escapeHtml(contact.name || "—") + '</div><div class="contact-title-cell">' + escapeHtml(contact.title || "") + '</div><div class="contact-email-cell">' + escapeHtml(contact.email || "") + '</div></div>' +
+              '<div><label>Reached</label>' + reachedBtn + '</div>' +
+              '<div><label>Who</label>' + whoSel + '</div>' +
+              '<div><label>Date</label><input type="date" class="who-select" data-action="contact-date" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" value="' + dateVal + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;"></div>' +
+              '<div><label>Response</label>' + respSel + '</div>' +
+              '<div><label>Moving</label>' + mfSel + '</div>' +
+              '<div style="grid-column:span 5"><label>Next steps</label><input type="text" class="who-select" data-action="contact-next" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" value="' + nextVal + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;"></div>' +
+              '</div>' +
+              '</td>';
+            institutionsTbody.appendChild(detailTr);
+          });
+        }
       }
     }
 
@@ -1133,8 +1162,6 @@
       if (v === "On hold") return '<span class="tag tag-warning">On hold</span>';
       return '<span class="tag">TBD</span>';
     }
-
-    const REPS = ["Suzana", "Bruno", "Both", "Other"];
 
     function whoSelectHtml(inst) {
       let out = '<select class="who-select" data-who data-id="' + escapeHtml(inst.id) + '" title="Who reached out">' +
@@ -1214,19 +1241,47 @@
 
     /* ---------- Institution modal ---------- */
 
-    function addContactRow(name, title, email) {
+    function addContactRow(contact) {
       const row = document.createElement("div");
       row.className = "contact-row";
+      const n = contact.name || "";
+      const t = contact.title || "";
+      const e = contact.email || "";
+      const reached = contact.reachedOut || false;
+      const who = contact.whoReachedOut || "";
+      const date = contact.dateReachedOut || "";
+      const resp = contact.response || "Pending";
+      const mf = contact.movingForward || "TBD";
+      const next = contact.nextSteps || "";
       row.innerHTML =
-        '<input class="contact-name" placeholder="Full name" value="' + escapeHtml(name || "") + '" />' +
-        '<input class="contact-title" placeholder="Title (e.g. CEO)" value="' + escapeHtml(title || "") + '" />' +
-        '<input class="contact-email" type="email" placeholder="Email" value="' + escapeHtml(email || "") + '" />' +
+        '<input class="contact-name" placeholder="Full name" value="' + escapeHtml(n) + '" />' +
+        '<input class="contact-title" placeholder="Title (e.g. CEO)" value="' + escapeHtml(t) + '" />' +
+        '<input class="contact-email" type="email" placeholder="Email" value="' + escapeHtml(e) + '" />' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.85rem;color:var(--subtext)"><input type="checkbox" class="contact-reached" ' + (reached ? "checked" : "") + ' /> Reached</label>' +
+        '<select class="contact-who" style="padding:2px 4px;font-size:0.85rem;">' +
+        '<option value="">—</option>' +
+        REPS.map(function (r) { return '<option value="' + r + '"' + (who === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
+        '</select>' +
+        '<input type="date" class="contact-date" value="' + escapeHtml(date) + '" style="padding:2px 4px;font-size:0.85rem;" />' +
+        '<select class="contact-response" style="padding:2px 4px;font-size:0.85rem;">' +
+        '<option value="Pending"' + (resp === "Pending" ? " selected" : "") + '>Pending</option>' +
+        '<option value="Yes"' + (resp === "Yes" ? " selected" : "") + '>Yes</option>' +
+        '<option value="No"' + (resp === "No" ? " selected" : "") + '>No</option>' +
+        '<option value="Follow up"' + (resp === "Follow up" ? " selected" : "") + '>Follow up</option>' +
+        '</select>' +
+        '<select class="contact-moving" style="padding:2px 4px;font-size:0.85rem;">' +
+        '<option value="TBD"' + (mf === "TBD" ? " selected" : "") + '>TBD</option>' +
+        '<option value="Yes"' + (mf === "Yes" ? " selected" : "") + '>Yes</option>' +
+        '<option value="No"' + (mf === "No" ? " selected" : "") + '>No</option>' +
+        '<option value="On hold"' + (mf === "On hold" ? " selected" : "") + '>On hold</option>' +
+        '</select>' +
+        '<input type="text" class="contact-next" placeholder="Next steps" value="' + escapeHtml(next) + '" style="padding:2px 4px;font-size:0.85rem;" />' +
         '<button class="small-btn" type="button">Remove</button>';
       row.querySelector("button").addEventListener("click", function () { row.remove(); });
       contactsListEl.appendChild(row);
     }
 
-    addContactBtn.addEventListener("click", function () { addContactRow("", "", ""); });
+    addContactBtn.addEventListener("click", function () { addContactRow({ name: "", title: "", email: "" }); });
 
     function openModal(mode, inst) {
       institutionForm.reset();
@@ -1234,22 +1289,17 @@
       editingInstitutionId = null;
       if (mode === "add") {
         modalTitle.textContent = "Add institution";
-        addContactRow("", "", "");
+        addContactRow({ name: "", title: "", email: "" });
       } else {
         modalTitle.textContent = "Edit institution";
         editingInstitutionId = inst.id;
         document.getElementById("company-name").value = inst.companyName || "";
         document.getElementById("company-type").value = inst.companyType || "";
         document.getElementById("importance").value = inst.importance || "";
-        document.getElementById("who-reached-out").value = inst.whoReachedOut || "";
-        document.getElementById("date-reached-out").value = inst.dateReachedOut || "";
-        document.getElementById("response").value = inst.response || "Pending";
-        document.getElementById("moving-forward").value = inst.movingForward || "TBD";
-        document.getElementById("next-steps").value = inst.nextSteps || "";
         if (inst.contacts && inst.contacts.length) {
-          inst.contacts.forEach(function (c) { addContactRow(c.name, c.title, c.email); });
+          inst.contacts.forEach(function (c) { addContactRow(c); });
         } else {
-          addContactRow("", "", "");
+          addContactRow({ name: "", title: "", email: "" });
         }
       }
       modal.classList.add("active");
@@ -1275,25 +1325,31 @@
         const n = row.querySelector(".contact-name").value.trim();
         const t = row.querySelector(".contact-title").value.trim();
         const em = row.querySelector(".contact-email").value.trim();
-        if (n || t || em) contacts.push({ name: n, title: t, email: em });
+        if (n || t || em) {
+          contacts.push({
+            name: n,
+            title: t,
+            email: em,
+            reachedOut: row.querySelector(".contact-reached").checked,
+            whoReachedOut: row.querySelector(".contact-who").value || "",
+            dateReachedOut: row.querySelector(".contact-date").value || "",
+            response: row.querySelector(".contact-response").value || "Pending",
+            movingForward: row.querySelector(".contact-moving").value || "TBD",
+            nextSteps: row.querySelector(".contact-next").value.trim() || ""
+          });
+        }
       });
       const entry = {
         id: editingInstitutionId || uid(),
         companyName: (fd.get("companyName") || "").toString().trim(),
         companyType: (fd.get("companyType") || "").toString(),
         contacts: contacts,
-        importance: (fd.get("importance") || "").toString(),
-        whoReachedOut: (fd.get("whoReachedOut") || "").toString(),
-        dateReachedOut: (fd.get("dateReachedOut") || "").toString(),
-        response: (fd.get("response") || "").toString(),
-        movingForward: (fd.get("movingForward") || "").toString(),
-        nextSteps: (fd.get("nextSteps") || "").toString().trim()
+        importance: (fd.get("importance") || "").toString()
       };
       if (editingInstitutionId) {
         const existing = project.institutions.find(function (i) { return i.id === editingInstitutionId; });
         if (existing && existing.reachedOut) entry.reachedOut = true;
       }
-      if (entry.whoReachedOut) localStorage.setItem("crm-last-who", entry.whoReachedOut);
       if (!project.institutions) project.institutions = [];
       if (editingInstitutionId) {
         const idx = project.institutions.findIndex(function (i) { return i.id === editingInstitutionId; });
@@ -1307,45 +1363,70 @@
     });
 
     institutionsTbody.addEventListener("click", function (e) {
+      const expandBtn = e.target.closest(".expand-btn[data-action='toggle-expand']");
+      if (expandBtn) {
+        const id = expandBtn.dataset.id;
+        if (expandedInstitutions.has(id)) expandedInstitutions.delete(id);
+        else expandedInstitutions.add(id);
+        renderAll();
+        return;
+      }
       const btn = e.target.closest("button[data-action]");
       if (!btn) return;
       const project = getActiveProject();
       if (!project) return;
-      const id = btn.dataset.id;
-      const inst = (project.institutions || []).find(function (i) { return i.id === id; });
+      const instId = btn.dataset.instId || btn.dataset.id;
+      const inst = (project.institutions || []).find(function (i) { return i.id === instId; });
       if (!inst) return;
       if (btn.dataset.action === "edit") openModal("edit", inst);
-      if (btn.dataset.action === "toggle-reached") {
-        inst.reachedOut = !inst.reachedOut;
-        if (inst.reachedOut && !inst.dateReachedOut) {
-          inst.dateReachedOut = new Date().toISOString().slice(0, 10);
-        }
-        // If marking as reached and whoReachedOut is empty, use last used rep
-        if (inst.reachedOut && !inst.whoReachedOut) {
-          const last = localStorage.getItem("crm-last-who");
-          if (last && REPS.indexOf(last) !== -1) inst.whoReachedOut = last;
-        }
+      if (btn.dataset.action === "delete") {
+        if (!confirm("Delete " + (inst.companyName || "this institution") + "?")) return;
+        project.institutions = project.institutions.filter(function (i) { return i.id !== instId; });
         persistState();
         renderAll();
       }
-      if (btn.dataset.action === "delete") {
-        if (!confirm("Delete " + (inst.companyName || "this institution") + "?")) return;
-        project.institutions = project.institutions.filter(function (i) { return i.id !== id; });
+      if (btn.dataset.action === "toggle-contact-reached") {
+        const ci = parseInt(btn.dataset.contactIdx, 10);
+        const contact = inst.contacts && inst.contacts[ci];
+        if (!contact) return;
+        contact.reachedOut = !contact.reachedOut;
+        if (contact.reachedOut && !contact.dateReachedOut) {
+          contact.dateReachedOut = new Date().toISOString().slice(0, 10);
+        }
+        if (contact.reachedOut && !contact.whoReachedOut) {
+          const last = localStorage.getItem("crm-last-who");
+          if (last && REPS.indexOf(last) !== -1) contact.whoReachedOut = last;
+        }
         persistState();
         renderAll();
       }
     });
 
     institutionsTbody.addEventListener("change", function (e) {
-      const sel = e.target.closest("select.who-select");
-      if (!sel) return;
+      const target = e.target;
       const project = getActiveProject();
       if (!project) return;
-      const id = sel.dataset.id;
-      const inst = (project.institutions || []).find(function (i) { return i.id === id; });
-      if (!inst) return;
-      inst.whoReachedOut = sel.value || "";
-      localStorage.setItem("crm-last-who", inst.whoReachedOut);
+      const instId = target.dataset.instId;
+      const ci = parseInt(target.dataset.contactIdx, 10);
+      if (!instId || isNaN(ci)) return;
+      const inst = (project.institutions || []).find(function (i) { return i.id === instId; });
+      if (!inst || !inst.contacts || !inst.contacts[ci]) return;
+      const contact = inst.contacts[ci];
+      const action = target.dataset.action;
+      if (action === "contact-who") {
+        contact.whoReachedOut = target.value || "";
+        if (contact.whoReachedOut) localStorage.setItem("crm-last-who", contact.whoReachedOut);
+      } else if (action === "contact-response") {
+        contact.response = target.value || "";
+      } else if (action === "contact-moving") {
+        contact.movingForward = target.value || "";
+      } else if (action === "contact-date") {
+        contact.dateReachedOut = target.value || "";
+      } else if (action === "contact-next") {
+        contact.nextSteps = target.value || "";
+      } else {
+        return;
+      }
       persistState();
       renderAll();
     });
@@ -1447,24 +1528,28 @@
     exportCsvBtn.addEventListener("click", function () {
       const project = getActiveProject();
       if (!project) return;
-      const rows = [["Reached out", "Company", "Type", "Contacts", "Importance", "Who reached out", "Date reached out", "Response", "Moving forward", "Next steps"]];
+      const headers = ["Company", "Type", "Importance", "Contact Name", "Contact Title", "Contact Email", "Reached Out", "Who Reached Out", "Date Reached Out", "Response", "Moving Forward", "Next Steps"];
+      const rows = [headers];
       (project.institutions || []).forEach(function (inst) {
-        const contacts = (inst.contacts && inst.contacts.length)
-          ? inst.contacts.map(function (c) {
-              const parts = [(c.name || ""), (c.title || "")].filter(Boolean).join(" - ");
-              return parts + (c.email ? " <" + c.email + ">" : "");
-            }).join("; ")
-          : (inst.contactInfo || "");
-        rows.push([
-          inst.reachedOut ? "Yes" : "No", inst.companyName || "", inst.companyType || "", contacts, inst.importance || "",
-          inst.whoReachedOut || "", inst.dateReachedOut || "", inst.response || "",
-          inst.movingForward || "", (inst.nextSteps || "").replace(/\n/g, " ")
-        ]);
+        const base = [inst.companyName || "", inst.companyType || "", inst.importance || ""];
+        if (inst.contacts && inst.contacts.length) {
+          inst.contacts.forEach(function (c) {
+            rows.push(base.concat([
+              c.name || "", c.title || "", c.email || "",
+              c.reachedOut ? "Yes" : "No",
+              c.whoReachedOut || "", c.dateReachedOut || "",
+              c.response || "Pending", c.movingForward || "TBD",
+              (c.nextSteps || "").replace(/\n/g, " ")
+            ]));
+          });
+        } else {
+          rows.push(base.concat(["", "", "", "No", "", "", "Pending", "TBD", ""]));
+        }
       });
       const csv = rows.map(function (r) {
         return r.map(function (cell) { return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
       }).join("\n");
-      downloadBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), project.name + "-institutions.csv");
+      downloadBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), project.name + "-contacts.csv");
     });
 
     function downloadBlob(blob, filename) {
@@ -1555,11 +1640,31 @@
 
     function mergeContact(inst, contact) {
       if (!inst.contacts) inst.contacts = [];
-      const c = { name: String(contact.name || "").trim(), title: String(contact.title || "").trim(), email: String(contact.email || "").trim() };
+      const c = { 
+        name: String(contact.name || "").trim(), 
+        title: String(contact.title || "").trim(), 
+        email: String(contact.email || "").trim(),
+        reachedOut: contact.reachedOut || false,
+        whoReachedOut: contact.whoReachedOut || "",
+        dateReachedOut: contact.dateReachedOut || "",
+        response: contact.response || "Pending",
+        movingForward: contact.movingForward || "TBD",
+        nextSteps: contact.nextSteps || ""
+      };
       if (!c.name && !c.email) return false;
       const key = contactKey(c);
-      const exists = inst.contacts.some(function (x) { return contactKey(x) === key; });
-      if (exists) return false;
+      const existingIdx = inst.contacts.findIndex(function (x) { return contactKey(x) === key; });
+      if (existingIdx >= 0) {
+        // Update outreach fields if provided
+        const existing = inst.contacts[existingIdx];
+        if (contact.reachedOut !== undefined) existing.reachedOut = contact.reachedOut;
+        if (contact.whoReachedOut) existing.whoReachedOut = contact.whoReachedOut;
+        if (contact.dateReachedOut) existing.dateReachedOut = contact.dateReachedOut;
+        if (contact.response) existing.response = contact.response;
+        if (contact.movingForward) existing.movingForward = contact.movingForward;
+        if (contact.nextSteps) existing.nextSteps = contact.nextSteps;
+        return false;
+      }
       inst.contacts.push(c);
       return true;
     }
@@ -1571,7 +1676,7 @@
         return String(i.companyName || "").trim().toLowerCase() === low;
       });
       if (inst) return inst;
-      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "", reachedOut: false, _justCreated: true };
+      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", _justCreated: true };
       if (!project.institutions) project.institutions = [];
       project.institutions.push(inst);
       return inst;
@@ -1587,19 +1692,28 @@
           if (rows.length < 2) { alert("CSV file seems empty."); return; }
           const headers = rows[0].map(function (h, i) { return String(h || ("col" + i)).trim(); });
 
+          // New format (per-contact rows): Company, Type, Importance, Contact Name, Contact Title, Contact Email, Reached Out, Who Reached Out, Date Reached Out, Response, Moving Forward, Next Steps
           const nameCol = matchColumn(headers, ["company", "company name", "institution", "institution name", "name", "organisation", "organization", "org", "entity", "financial institution"]);
           const typeCol = matchColumn(headers, ["type", "company type", "entity type", "kind", "category", "institution type"]);
-          const contactNameCol = matchColumn(headers, ["contact name", "contact full name", "full name", "contact person", "person name", "person", "name of contact", "nome"]);
-          const contactTitleCol = matchColumn(headers, ["title", "job title", "contact title", "role", "position", "cargo", "function", "funcao", "designation"]);
-          const contactEmailCol = matchColumn(headers, ["email", "e-mail", "e mail", "email address", "contact email", "contact e-mail", "mail", "correo"]);
-          const contactBlockCol = matchColumn(headers, ["contacts", "contact", "contact info", "contact information", "contacts info", "contact block"]);
           const importanceCol = matchColumn(headers, ["importance", "priority", "important"]);
-          const whoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
-          const dateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
-          const responseCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
-          const movingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
-          const nextStepsCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
-          const reachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
+          const cNameCol = matchColumn(headers, ["contact name", "contact full name", "full name", "contact person", "person name", "person", "name of contact", "nome"]);
+          const cTitleCol = matchColumn(headers, ["contact title", "title", "job title", "role", "position", "cargo", "function", "funcao", "designation"]);
+          const cEmailCol = matchColumn(headers, ["contact email", "email", "e-mail", "e mail", "email address", "contact e-mail", "mail", "correo"]);
+          const cReachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
+          const cWhoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
+          const cDateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
+          const cRespCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
+          const cMovingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
+          const cNextCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
+
+          // Old format fallback columns
+          const oldWhoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
+          const oldDateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
+          const oldRespCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
+          const oldMovingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
+          const oldNextCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
+          const oldReachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
+          const contactBlockCol = matchColumn(headers, ["contacts", "contact", "contact info", "contact information", "contacts info", "contact block"]);
 
           if (nameCol === -1) { alert("Could not find an institution/company name column. Headers found: " + headers.join(", ")); return; }
 
@@ -1624,21 +1738,52 @@
             inst._justCreated = false;
             if (typeCol >= 0 && !inst.companyType) inst.companyType = get(typeCol);
             if (importanceCol >= 0 && !inst.importance) inst.importance = get(importanceCol);
-            if (whoCol >= 0 && !inst.whoReachedOut) inst.whoReachedOut = get(whoCol);
-            if (dateCol >= 0 && !inst.dateReachedOut) inst.dateReachedOut = get(dateCol);
-            if (responseCol >= 0 && !inst.response) inst.response = get(responseCol);
-            if (movingCol >= 0 && !inst.movingForward) inst.movingForward = get(movingCol);
-            if (nextStepsCol >= 0 && !inst.nextSteps) inst.nextSteps = get(nextStepsCol);
-            if (reachedCol >= 0) {
-              const rv = get(reachedCol).toLowerCase();
-              inst.reachedOut = rv === "yes" || rv === "y" || rv === "true" || rv === "1" || rv === "done" || rv === "sim" || rv === "ja";
-            }
 
-            if ((contactNameCol >= 0 || contactEmailCol >= 0) && (get(contactNameCol) || get(contactEmailCol))) {
-              if (mergeContact(inst, { name: get(contactNameCol), title: get(contactTitleCol), email: get(contactEmailCol) })) mergedContacts++;
+            // New format: per-contact outreach columns present
+            const hasNewContactCols = cNameCol >= 0 || cEmailCol >= 0;
+            const hasNewOutreachCols = cReachedCol >= 0 || cWhoCol >= 0 || cDateCol >= 0 || cRespCol >= 0 || cMovingCol >= 0 || cNextCol >= 0;
+
+            if (hasNewContactCols && (get(cNameCol) || get(cEmailCol))) {
+              const contact = {
+                name: get(cNameCol),
+                title: get(cTitleCol),
+                email: get(cEmailCol),
+                reachedOut: cReachedCol >= 0 ? (get(cReachedCol).toLowerCase() === "yes" || get(cReachedCol).toLowerCase() === "y" || get(cReachedCol).toLowerCase() === "true" || get(cReachedCol) === "1") : false,
+                whoReachedOut: get(cWhoCol),
+                dateReachedOut: get(cDateCol),
+                response: get(cRespCol) || "Pending",
+                movingForward: get(cMovingCol) || "TBD",
+                nextSteps: get(cNextCol)
+              };
+              if (mergeContact(inst, contact)) mergedContacts++;
             } else if (contactBlockCol >= 0) {
+              // Old format: contacts in a single block
               const list = parseContactBlock(get(contactBlockCol));
               for (const c of list) if (mergeContact(inst, c)) mergedContacts++;
+            } else if (cNameCol >= 0 || cEmailCol >= 0) {
+              // New format with separate contact columns but no outreach cols
+              const contact = { name: get(cNameCol), title: get(cTitleCol), email: get(cEmailCol) };
+              if (mergeContact(inst, contact)) mergedContacts++;
+            }
+
+            // Old format: institution-level outreach (apply to first contact or create a default contact)
+            if (!hasNewOutreachCols && (oldReachedCol >= 0 || oldWhoCol >= 0 || oldDateCol >= 0 || oldRespCol >= 0 || oldMovingCol >= 0 || oldNextCol >= 0)) {
+              // Apply to first contact or create a placeholder
+              if (inst.contacts && inst.contacts.length === 0) {
+                inst.contacts.push({ name: "", title: "", email: "" });
+              }
+              if (inst.contacts && inst.contacts.length > 0) {
+                const c = inst.contacts[0];
+                if (oldReachedCol >= 0) {
+                  const rv = get(oldReachedCol).toLowerCase();
+                  c.reachedOut = rv === "yes" || rv === "y" || rv === "true" || rv === "1" || rv === "done" || rv === "sim" || rv === "ja";
+                }
+                if (oldWhoCol >= 0) c.whoReachedOut = get(oldWhoCol);
+                if (oldDateCol >= 0) c.dateReachedOut = get(oldDateCol);
+                if (oldRespCol >= 0) c.response = get(oldRespCol) || "Pending";
+                if (oldMovingCol >= 0) c.movingForward = get(oldMovingCol) || "TBD";
+                if (oldNextCol >= 0) c.nextSteps = get(oldNextCol);
+              }
             }
           }
 
