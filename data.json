@@ -1,1 +1,11 @@
-{"projects":[],"activeProjectId":null}
+{
+  "projects": [
+    {
+      "id": "muylo72ocukffk",
+      "name": "Palazzo Ricci",
+      "institutions": [],
+      "tasks": []
+    }
+  ],
+  "activeProjectId": "muylo72ocukffk"
+}
