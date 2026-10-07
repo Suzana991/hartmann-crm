@@ -852,7 +852,6 @@
     }
 
     async function saveToGithub() {
-      let content = utf8ToBase64(JSON.stringify(state, null, 2));
       let lastErr = null;
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
@@ -866,14 +865,14 @@
             if (!(err && err.status === 404)) throw err;
           }
 
-          if (remote) {
+          if (remote && attempt > 0) {
             const merged = mergeStates(remote, state);
             state = merged;
             activeProjectId = state.activeProjectId || activeProjectId;
             state.activeProjectId = activeProjectId;
-            content = utf8ToBase64(JSON.stringify(state, null, 2));
           }
 
+          const content = utf8ToBase64(JSON.stringify(state, null, 2));
           const body = {
             message: "Update CRM data (" + new Date().toLocaleString() + ")",
             content: content,
