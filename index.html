@@ -717,7 +717,8 @@
     }
 
     async function apiGet(path) {
-      const res = await fetch(apiBase + "/" + path, {
+      const sep = path.indexOf("?") === -1 ? "?" : "&";
+      const res = await fetch(apiBase + "/" + path + sep + "_t=" + Date.now() + Math.random(), {
         headers: {
           "Accept": "application/vnd.github+json",
           "Authorization": "Bearer " + GITHUB_TOKEN,
@@ -752,6 +753,91 @@
       return JSON.stringify(state);
     }
 
+    function normalizeKey(s) {
+      return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function mergeStates(remote, local) {
+      const result = { projects: [], activeProjectId: null };
+      const indexBy = function (p) { return p.id ? "id:" + p.id : "name:" + normalizeKey(p.name); };
+      const instKey = function (i) { return i.id ? "id:" + i.id : "name:" + normalizeKey(i.companyName); };
+      const remoteMap = {};
+      const localMap = {};
+      const order = {};
+
+      function addTo(map, project) {
+        const k = indexBy(project);
+        if (!map[k]) map[k] = project;
+        return map[k];
+      }
+
+      (remote.projects || []).forEach(function (p) { const k = indexBy(p); remoteMap[k] = p; order[k] = order[k] || p; });
+      (local.projects || []).forEach(function (p) { const k = indexBy(p); localMap[k] = p; order[k] = order[k] || p; });
+
+      const seen = {};
+      Object.keys(order).forEach(function (k) {
+        const r = remoteMap[k];
+        const l = localMap[k];
+        let p;
+        if (r && l) {
+          p = JSON.parse(JSON.stringify(l));
+          p.institutions = mergeInstitutions(r.institutions || [], l.institutions || []);
+          p.tasks = mergeTasks(r.tasks || [], l.tasks || []);
+        } else {
+          p = JSON.parse(JSON.stringify(r || l));
+          p.institutions = p.institutions || [];
+          p.tasks = p.tasks || [];
+        }
+        seen[k] = true;
+        result.projects.push(p);
+      });
+      result.activeProjectId = (local.activeProjectId && result.projects.some(function (p) { return p.id === local.activeProjectId; }))
+        ? local.activeProjectId
+        : (result.projects[0] ? result.projects[0].id : null);
+      return result;
+    }
+
+    function mergeInstitutions(remoteList, localList) {
+      const map = {};
+      const order = {};
+      remoteList.forEach(function (i) { const k = instKeyInner(i); if (!map[k]) map[k] = JSON.parse(JSON.stringify(i)); order[k] = order[k] || map[k]; });
+      localList.forEach(function (i) {
+        const k = instKeyInner(i);
+        if (!map[k]) {
+          map[k] = JSON.parse(JSON.stringify(i));
+          order[k] = map[k];
+        } else {
+          const merged = JSON.parse(JSON.stringify(i));
+          merged.contacts = mergeContacts((map[k].contacts || []), (i.contacts || []));
+          map[k] = merged;
+          order[k] = merged;
+        }
+      });
+      return Object.keys(order).map(function (k) { return order[k]; });
+    }
+
+    function instKeyInner(i) {
+      return i.id ? "id:" + i.id : "name:" + normalizeKey(i.companyName);
+    }
+
+    function mergeContacts(listA, listB) {
+      const combined = (listB || []).concat(listA || []);
+      const map = {};
+      const out = [];
+      combined.forEach(function (c) {
+        const k = (c && c.email) ? "e:" + normalizeKey(c.email) : "n:" + normalizeKey(c.name);
+        if (!map[k]) { map[k] = true; out.push(c); }
+      });
+      return out;
+    }
+
+    function mergeTasks(listA, listB) {
+      const map = {};
+      (listA || []).forEach(function (t) { if (t && t.id) map[t.id] = JSON.parse(JSON.stringify(t)); });
+      (listB || []).forEach(function (t) { if (t && t.id) map[t.id] = JSON.parse(JSON.stringify(t)); });
+      return Object.keys(map).map(function (k) { return map[k]; });
+    }
+
     async function loadFromGithub() {
       try {
         const file = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
@@ -765,17 +851,28 @@
     }
 
     async function saveToGithub() {
-      const content = utf8ToBase64(JSON.stringify(state, null, 2));
+      let content = utf8ToBase64(JSON.stringify(state, null, 2));
       let lastErr = null;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           let sha = null;
+          let remote = null;
           try {
             const existing = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
             sha = existing.sha;
+            remote = JSON.parse(base64ToUtf8(existing.content));
           } catch (err) {
             if (!(err && err.status === 404)) throw err;
           }
+
+          if (remote) {
+            const merged = mergeStates(remote, state);
+            state = merged;
+            activeProjectId = state.activeProjectId || activeProjectId;
+            state.activeProjectId = activeProjectId;
+            content = utf8ToBase64(JSON.stringify(state, null, 2));
+          }
+
           const body = {
             message: "Update CRM data (" + new Date().toLocaleString() + ")",
             content: content,
@@ -784,12 +881,13 @@
           if (sha) body.sha = sha;
           const resp = await apiPut("contents/" + DATA_PATH, body);
           lastSavedHash = hashState();
+          renderAll();
           setStatus("saved", "Saved to GitHub - " + new Date().toLocaleTimeString());
           return resp;
         } catch (err) {
           lastErr = err;
           if (err && (err.status === 409 || err.status === 422)) {
-            await new Promise(function (r) { setTimeout(r, 500 * (attempt + 1)); });
+            await new Promise(function (r) { setTimeout(r, 400 * (attempt + 1)); });
             continue;
           }
           break;
