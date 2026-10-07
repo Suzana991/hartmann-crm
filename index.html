@@ -358,7 +358,7 @@
     .contacts-container { display: flex; flex-direction: column; gap: 8px; grid-column: 1 / -1; }
     .contact-row {
       display: grid;
-      grid-template-columns: 1fr 1fr auto;
+      grid-template-columns: 1fr 1fr 1fr auto;
       gap: 8px;
       align-items: start;
     }
@@ -1050,6 +1050,7 @@
         const contactsHtml = (inst.contacts && inst.contacts.length)
           ? inst.contacts.map(function (c) {
               return '<span class="tag tag-info">' + escapeHtml(c.name || "?") +
+                (c.title ? ' &middot; <em>' + escapeHtml(c.title) + "</em>" : "") +
                 (c.email ? " &middot; " + escapeHtml(c.email) : "") + "</span>";
             }).join("")
           : escapeHtml(inst.contactInfo || "—");
@@ -1167,18 +1168,19 @@
 
     /* ---------- Institution modal ---------- */
 
-    function addContactRow(name, email) {
+    function addContactRow(name, title, email) {
       const row = document.createElement("div");
       row.className = "contact-row";
       row.innerHTML =
         '<input class="contact-name" placeholder="Full name" value="' + escapeHtml(name || "") + '" />' +
+        '<input class="contact-title" placeholder="Title (e.g. CEO)" value="' + escapeHtml(title || "") + '" />' +
         '<input class="contact-email" type="email" placeholder="Email" value="' + escapeHtml(email || "") + '" />' +
         '<button class="small-btn" type="button">Remove</button>';
       row.querySelector("button").addEventListener("click", function () { row.remove(); });
       contactsListEl.appendChild(row);
     }
 
-    addContactBtn.addEventListener("click", function () { addContactRow("", ""); });
+    addContactBtn.addEventListener("click", function () { addContactRow("", "", ""); });
 
     function openModal(mode, inst) {
       institutionForm.reset();
@@ -1186,7 +1188,7 @@
       editingInstitutionId = null;
       if (mode === "add") {
         modalTitle.textContent = "Add institution";
-        addContactRow("", "");
+        addContactRow("", "", "");
       } else {
         modalTitle.textContent = "Edit institution";
         editingInstitutionId = inst.id;
@@ -1199,9 +1201,9 @@
         document.getElementById("moving-forward").value = inst.movingForward || "TBD";
         document.getElementById("next-steps").value = inst.nextSteps || "";
         if (inst.contacts && inst.contacts.length) {
-          inst.contacts.forEach(function (c) { addContactRow(c.name, c.email); });
+          inst.contacts.forEach(function (c) { addContactRow(c.name, c.title, c.email); });
         } else {
-          addContactRow("", "");
+          addContactRow("", "", "");
         }
       }
       modal.classList.add("active");
@@ -1225,8 +1227,9 @@
       const contacts = [];
       contactsListEl.querySelectorAll(".contact-row").forEach(function (row) {
         const n = row.querySelector(".contact-name").value.trim();
+        const t = row.querySelector(".contact-title").value.trim();
         const em = row.querySelector(".contact-email").value.trim();
-        if (n || em) contacts.push({ name: n, email: em });
+        if (n || t || em) contacts.push({ name: n, title: t, email: em });
       });
       const entry = {
         id: editingInstitutionId || uid(),
@@ -1381,7 +1384,10 @@
       const rows = [["Reached out", "Company", "Type", "Contacts", "Importance", "Who reached out", "Date reached out", "Response", "Moving forward", "Next steps"]];
       (project.institutions || []).forEach(function (inst) {
         const contacts = (inst.contacts && inst.contacts.length)
-          ? inst.contacts.map(function (c) { return (c.name || "") + (c.email ? " <" + c.email + ">" : ""); }).join("; ")
+          ? inst.contacts.map(function (c) {
+              const parts = [(c.name || ""), (c.title || "")].filter(Boolean).join(" - ");
+              return parts + (c.email ? " <" + c.email + ">" : "");
+            }).join("; ")
           : (inst.contactInfo || "");
         rows.push([
           inst.reachedOut ? "Yes" : "No", inst.companyName || "", inst.companyType || "", contacts, inst.importance || "",
@@ -1454,16 +1460,23 @@
         if (!t) continue;
         const angle = /^\s*(.*?)\s*<\s*([^>]*)\s*>\s*$/.exec(t);
         if (angle && angle[2]) {
-          out.push({ name: angle[1], email: angle[2] });
+          const label = angle[1].trim();
+          const dash = label.lastIndexOf(" - ");
+          const name = dash > -1 ? label.slice(0, dash).trim() : label;
+          const title = dash > -1 ? label.slice(dash + 3).trim() : "";
+          out.push({ name: name, title: title, email: angle[2] });
           continue;
         }
         const emailMatch = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.exec(t);
         if (emailMatch) {
           const rest = t.replace(emailMatch[0], "").trim().replace(/^[-_ ]|[-_ ]$/g, "");
-          out.push({ name: rest, email: emailMatch[0] });
+          const dash = rest.lastIndexOf(" - ");
+          const name = dash > -1 ? rest.slice(0, dash).trim() : rest;
+          const title = dash > -1 ? rest.slice(dash + 3).trim() : "";
+          out.push({ name: name, title: title, email: emailMatch[0] });
           continue;
         }
-        out.push({ name: t, email: "" });
+        out.push({ name: t, title: "", email: "" });
       }
       return out;
     }
@@ -1476,7 +1489,7 @@
 
     function mergeContact(inst, contact) {
       if (!inst.contacts) inst.contacts = [];
-      const c = { name: String(contact.name || "").trim(), email: String(contact.email || "").trim() };
+      const c = { name: String(contact.name || "").trim(), title: String(contact.title || "").trim(), email: String(contact.email || "").trim() };
       if (!c.name && !c.email) return false;
       const key = contactKey(c);
       const exists = inst.contacts.some(function (x) { return contactKey(x) === key; });
@@ -1511,6 +1524,7 @@
           const nameCol = matchColumn(headers, ["company", "company name", "institution", "institution name", "name", "organisation", "organization", "org", "entity", "financial institution"]);
           const typeCol = matchColumn(headers, ["type", "company type", "entity type", "kind", "category", "institution type"]);
           const contactNameCol = matchColumn(headers, ["contact name", "contact full name", "full name", "contact person", "person name", "person", "name of contact", "nome"]);
+          const contactTitleCol = matchColumn(headers, ["title", "job title", "contact title", "role", "position", "cargo", "function", "funcao", "designation"]);
           const contactEmailCol = matchColumn(headers, ["email", "e-mail", "e mail", "email address", "contact email", "contact e-mail", "mail", "correo"]);
           const contactBlockCol = matchColumn(headers, ["contacts", "contact", "contact info", "contact information", "contacts info", "contact block"]);
           const importanceCol = matchColumn(headers, ["importance", "priority", "important"]);
@@ -1555,7 +1569,7 @@
             }
 
             if ((contactNameCol >= 0 || contactEmailCol >= 0) && (get(contactNameCol) || get(contactEmailCol))) {
-              if (mergeContact(inst, { name: get(contactNameCol), email: get(contactEmailCol) })) mergedContacts++;
+              if (mergeContact(inst, { name: get(contactNameCol), title: get(contactTitleCol), email: get(contactEmailCol) })) mergedContacts++;
             } else if (contactBlockCol >= 0) {
               const list = parseContactBlock(get(contactBlockCol));
               for (const c of list) if (mergeContact(inst, c)) mergedContacts++;
