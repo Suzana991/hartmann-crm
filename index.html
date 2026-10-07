@@ -185,6 +185,37 @@
       outline: none;
       color: var(--text);
     }
+    .filter-select {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--input-bg);
+      padding: 6px 10px;
+      font-size: 0.95rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+    tr.reached-out { background: rgba(63, 185, 132, 0.06); }
+    tr.reached-out td:first-child { border-left: 3px solid var(--success); }
+    tr.not-reached:hover { background: var(--row-hover); }
+    .reached-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .reached-pill.is-reached {
+      background: rgba(63, 185, 132, 0.15);
+      border-color: rgba(63, 185, 132, 0.8);
+      color: var(--success);
+    }
+    .reached-pill:not(.is-reached) { color: var(--subtext); }
+    .reached-pill:not(.is-reached):hover { color: var(--text); border-color: var(--accent); }
     .table-wrapper {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -442,6 +473,11 @@
           <div class="search-wrap">
             <input id="search-input" placeholder="Search..." />
           </div>
+          <select id="outreach-filter" class="filter-select" title="Filter by outreach status">
+            <option value="all">All</option>
+            <option value="reached">Reached out</option>
+            <option value="not">Not reached out</option>
+          </select>
           <button class="ghost-btn" id="export-csv-btn" disabled>Export CSV</button>
           <button class="ghost-btn" id="export-json-btn" disabled>Export JSON</button>
           <label class="ghost-btn" style="cursor:pointer">
@@ -463,6 +499,7 @@
           <table>
             <thead>
               <tr>
+                <th>Reached out</th>
                 <th>Company name</th>
                 <th>Type</th>
                 <th>Contacts</th>
@@ -622,6 +659,7 @@
     const institutionsTbody = document.getElementById("institutions-tbody");
     const emptyState = document.getElementById("empty-state");
     const searchInput = document.getElementById("search-input");
+    const outreachFilterEl = document.getElementById("outreach-filter");
     const exportCsvBtn = document.getElementById("export-csv-btn");
     const exportJsonBtn = document.getElementById("export-json-btn");
     const importJsonInput = document.getElementById("import-json-input");
@@ -654,6 +692,7 @@
     let editingInstitutionId = null;
     let editingTaskId = null;
     let searchTerm = "";
+    let outreachFilter = "all";
     let lastSavedHash = null;
 
     /* ---------- GitHub persistence ---------- */
@@ -851,8 +890,9 @@
         return;
       }
       const count = (project.institutions || []).length;
+      const reachedCount = (project.institutions || []).filter(function (i) { return !!i.reachedOut; }).length;
       activeProjectTitle.textContent = project.name;
-      activeProjectSubtitle.textContent = count + " institution" + (count === 1 ? "" : "s") + " tracked";
+      activeProjectSubtitle.textContent = count + " institution" + (count === 1 ? "" : "s") + " tracked &middot; " + reachedCount + " reached out";
       renameProjectBtn.disabled = false;
       deleteProjectBtn.disabled = false;
       addInstitutionBtn.disabled = false;
@@ -862,6 +902,8 @@
       institutionsTbody.innerHTML = "";
       const list = (project.institutions || []);
       const filtered = list.filter(function (inst) {
+        if (outreachFilter === "reached" && !inst.reachedOut) return false;
+        if (outreachFilter === "not" && inst.reachedOut) return false;
         if (!searchTerm) return true;
         const hay = [
           inst.companyName, inst.companyType, inst.importance, inst.whoReachedOut,
@@ -875,6 +917,9 @@
         if (list.length === 0) {
           emptyState.querySelectorAll("p")[0].textContent = "No institutions added yet for this project.";
           emptyState.querySelectorAll("p")[1].textContent = 'Click "+ Add institution" to create your first entry.';
+        } else if (searchTerm || outreachFilter !== "all") {
+          emptyState.querySelectorAll("p")[0].textContent = "No institutions match your search or filter.";
+          emptyState.querySelectorAll("p")[1].textContent = "";
         } else {
           emptyState.querySelectorAll("p")[0].textContent = "No institutions match your search.";
           emptyState.querySelectorAll("p")[1].textContent = "";
@@ -885,13 +930,19 @@
 
       for (const inst of filtered) {
         const tr = document.createElement("tr");
+        if (inst.reachedOut) tr.className = "reached-out";
+        else tr.className = "not-reached";
         const contactsHtml = (inst.contacts && inst.contacts.length)
           ? inst.contacts.map(function (c) {
               return '<span class="tag tag-info">' + escapeHtml(c.name || "?") +
                 (c.email ? " &middot; " + escapeHtml(c.email) : "") + "</span>";
             }).join("")
           : escapeHtml(inst.contactInfo || "—");
+        const reachedPill = inst.reachedOut
+          ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
+          : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
         tr.innerHTML =
+          "<td>" + reachedPill + "</td>" +
           "<td>" + escapeHtml(inst.companyName || "—") + "</td>" +
           '<td><span class="tag">' + escapeHtml(inst.companyType || "—") + "</span></td>" +
           "<td>" + contactsHtml + "</td>" +
@@ -1074,6 +1125,10 @@
         movingForward: (fd.get("movingForward") || "").toString(),
         nextSteps: (fd.get("nextSteps") || "").toString().trim()
       };
+      if (editingInstitutionId) {
+        const existing = project.institutions.find(function (i) { return i.id === editingInstitutionId; });
+        if (existing && existing.reachedOut) entry.reachedOut = true;
+      }
       if (!project.institutions) project.institutions = [];
       if (editingInstitutionId) {
         const idx = project.institutions.findIndex(function (i) { return i.id === editingInstitutionId; });
@@ -1095,6 +1150,14 @@
       const inst = (project.institutions || []).find(function (i) { return i.id === id; });
       if (!inst) return;
       if (btn.dataset.action === "edit") openModal("edit", inst);
+      if (btn.dataset.action === "toggle-reached") {
+        inst.reachedOut = !inst.reachedOut;
+        if (inst.reachedOut && !inst.dateReachedOut) {
+          inst.dateReachedOut = new Date().toISOString().slice(0, 10);
+        }
+        persistState();
+        renderAll();
+      }
       if (btn.dataset.action === "delete") {
         if (!confirm("Delete " + (inst.companyName || "this institution") + "?")) return;
         project.institutions = project.institutions.filter(function (i) { return i.id !== id; });
@@ -1185,6 +1248,11 @@
       renderContent();
     });
 
+    outreachFilterEl.addEventListener("change", function () {
+      outreachFilter = outreachFilterEl.value;
+      renderContent();
+    });
+
     /* ---------- Export / Import ---------- */
 
     exportJsonBtn.addEventListener("click", function () {
@@ -1195,13 +1263,13 @@
     exportCsvBtn.addEventListener("click", function () {
       const project = getActiveProject();
       if (!project) return;
-      const rows = [["Company", "Type", "Contacts", "Importance", "Who reached out", "Date reached out", "Response", "Moving forward", "Next steps"]];
+      const rows = [["Reached out", "Company", "Type", "Contacts", "Importance", "Who reached out", "Date reached out", "Response", "Moving forward", "Next steps"]];
       (project.institutions || []).forEach(function (inst) {
         const contacts = (inst.contacts && inst.contacts.length)
           ? inst.contacts.map(function (c) { return (c.name || "") + (c.email ? " <" + c.email + ">" : ""); }).join("; ")
           : (inst.contactInfo || "");
         rows.push([
-          inst.companyName || "", inst.companyType || "", contacts, inst.importance || "",
+          inst.reachedOut ? "Yes" : "No", inst.companyName || "", inst.companyType || "", contacts, inst.importance || "",
           inst.whoReachedOut || "", inst.dateReachedOut || "", inst.response || "",
           inst.movingForward || "", (inst.nextSteps || "").replace(/\n/g, " ")
         ]);
@@ -1309,7 +1377,7 @@
         return String(i.companyName || "").trim().toLowerCase() === low;
       });
       if (inst) return inst;
-      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "", _justCreated: true };
+      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "", reachedOut: false, _justCreated: true };
       if (!project.institutions) project.institutions = [];
       project.institutions.push(inst);
       return inst;
@@ -1336,6 +1404,7 @@
           const responseCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
           const movingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
           const nextStepsCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
+          const reachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
 
           if (nameCol === -1) { alert("Could not find an institution/company name column. Headers found: " + headers.join(", ")); return; }
 
@@ -1365,6 +1434,10 @@
             if (responseCol >= 0 && !inst.response) inst.response = get(responseCol);
             if (movingCol >= 0 && !inst.movingForward) inst.movingForward = get(movingCol);
             if (nextStepsCol >= 0 && !inst.nextSteps) inst.nextSteps = get(nextStepsCol);
+            if (reachedCol >= 0) {
+              const rv = get(reachedCol).toLowerCase();
+              inst.reachedOut = rv === "yes" || rv === "y" || rv === "true" || rv === "1" || rv === "done" || rv === "sim" || rv === "ja";
+            }
 
             if ((contactNameCol >= 0 || contactEmailCol >= 0) && (get(contactNameCol) || get(contactEmailCol))) {
               if (mergeContact(inst, { name: get(contactNameCol), email: get(contactEmailCol) })) mergedContacts++;
