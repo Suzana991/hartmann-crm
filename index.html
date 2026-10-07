@@ -445,6 +445,10 @@
           <button class="ghost-btn" id="export-csv-btn" disabled>Export CSV</button>
           <button class="ghost-btn" id="export-json-btn" disabled>Export JSON</button>
           <label class="ghost-btn" style="cursor:pointer">
+            Import CSV
+            <input type="file" id="import-csv-input" accept=".csv,text/csv" hidden />
+          </label>
+          <label class="ghost-btn" style="cursor:pointer">
             Import JSON
             <input type="file" id="import-json-input" accept=".json,application/json" hidden />
           </label>
@@ -621,6 +625,7 @@
     const exportCsvBtn = document.getElementById("export-csv-btn");
     const exportJsonBtn = document.getElementById("export-json-btn");
     const importJsonInput = document.getElementById("import-json-input");
+    const importCsvInput = document.getElementById("import-csv-input");
     const themeToggle = document.getElementById("theme-toggle");
     const themeToggleLabel = document.getElementById("theme-toggle-label");
     const reloadBtn = document.getElementById("reload-btn");
@@ -1217,6 +1222,168 @@
       document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     }
+
+    /* ---------- CSV Import ---------- */
+
+    function parseCsv(text) {
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+      const rows = [];
+      let row = [], field = "", inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+          if (ch === '"') {
+            if (text[i + 1] === '"') { field += '"'; i++; }
+            else inQuotes = false;
+          } else {
+            field += ch;
+          }
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === ",") { row.push(field); field = ""; }
+          else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+          else if (ch === "\r") { /* skip, handled by \n */ }
+          else field += ch;
+        }
+      }
+      if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+      return rows.filter(function (r) { return r.some(function (c) { return c.trim() !== ""; }); });
+    }
+
+    function normalizeHeader(h) {
+      return String(h).toLowerCase().trim().replace(/\s+/g, " ");
+    }
+
+    function matchColumn(headers, synonyms) {
+      for (let i = 0; i < headers.length; i++) {
+        const h = normalizeHeader(headers[i]);
+        if (synonyms.indexOf(h) !== -1) return i;
+      }
+      return -1;
+    }
+
+    function parseContactBlock(block) {
+      const out = [];
+      if (!block) return out;
+      const parts = String(block).split(/[;|]+/);
+      for (const part of parts) {
+        const t = part.trim();
+        if (!t) continue;
+        const angle = /^\s*(.*?)\s*<\s*([^>]*)\s*>\s*$/.exec(t);
+        if (angle && angle[2]) {
+          out.push({ name: angle[1], email: angle[2] });
+          continue;
+        }
+        const emailMatch = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.exec(t);
+        if (emailMatch) {
+          const rest = t.replace(emailMatch[0], "").trim().replace(/^[-_ ]|[-_ ]$/g, "");
+          out.push({ name: rest, email: emailMatch[0] });
+          continue;
+        }
+        out.push({ name: t, email: "" });
+      }
+      return out;
+    }
+
+    function contactKey(c) {
+      const e = String(c.email || "").trim().toLowerCase();
+      const n = String(c.name || "").trim().toLowerCase();
+      return (e || n || "x" + Math.random()).replace(/\s+/g, "");
+    }
+
+    function mergeContact(inst, contact) {
+      if (!inst.contacts) inst.contacts = [];
+      const c = { name: String(contact.name || "").trim(), email: String(contact.email || "").trim() };
+      if (!c.name && !c.email) return false;
+      const key = contactKey(c);
+      const exists = inst.contacts.some(function (x) { return contactKey(x) === key; });
+      if (exists) return false;
+      inst.contacts.push(c);
+      return true;
+    }
+
+    function findOrCreateInstitution(project, name) {
+      const trimmed = String(name || "").trim();
+      const low = trimmed.toLowerCase();
+      let inst = (project.institutions || []).find(function (i) {
+        return String(i.companyName || "").trim().toLowerCase() === low;
+      });
+      if (inst) return inst;
+      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "", _justCreated: true };
+      if (!project.institutions) project.institutions = [];
+      project.institutions.push(inst);
+      return inst;
+    }
+
+    importCsvInput.addEventListener("change", function () {
+      const file = importCsvInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const rows = parseCsv(reader.result);
+          if (rows.length < 2) { alert("CSV file seems empty."); return; }
+          const headers = rows[0].map(function (h, i) { return String(h || ("col" + i)).trim(); });
+
+          const nameCol = matchColumn(headers, ["company", "company name", "institution", "institution name", "name", "organisation", "organization", "org", "entity", "financial institution"]);
+          const typeCol = matchColumn(headers, ["type", "company type", "entity type", "kind", "category", "institution type"]);
+          const contactNameCol = matchColumn(headers, ["contact name", "contact full name", "full name", "contact person", "person name", "person", "name of contact", "nome"]);
+          const contactEmailCol = matchColumn(headers, ["email", "e-mail", "e mail", "email address", "contact email", "contact e-mail", "mail", "correo"]);
+          const contactBlockCol = matchColumn(headers, ["contacts", "contact", "contact info", "contact information", "contacts info", "contact block"]);
+          const importanceCol = matchColumn(headers, ["importance", "priority", "important"]);
+          const whoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
+          const dateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
+          const responseCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
+          const movingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
+          const nextStepsCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
+
+          if (nameCol === -1) { alert("Could not find an institution/company name column. Headers found: " + headers.join(", ")); return; }
+
+          let project = getActiveProject();
+          if (!project) {
+            const base = (file.name || "Imported").replace(/\.csv$/i, "").replace(/\.xlsx$/i, "").trim() || "Imported project";
+            project = { id: uid(), name: base, institutions: [], tasks: [] };
+            state.projects.push(project);
+          }
+          activeProjectId = project.id;
+          state.activeProjectId = activeProjectId;
+
+          let created = 0, mergedContacts = 0, skipped = 0;
+          for (let r = 1; r < rows.length; r++) {
+            const rowv = rows[r];
+            const get = function (col) { return col >= 0 && col < rowv.length ? String(rowv[col] || "").trim() : ""; };
+            const name = get(nameCol);
+            if (!name) { skipped++; continue; }
+            const inst = findOrCreateInstitution(project, name);
+            const isNew = inst._justCreated;
+            if (isNew) created++;
+            inst._justCreated = false;
+            if (typeCol >= 0 && !inst.companyType) inst.companyType = get(typeCol);
+            if (importanceCol >= 0 && !inst.importance) inst.importance = get(importanceCol);
+            if (whoCol >= 0 && !inst.whoReachedOut) inst.whoReachedOut = get(whoCol);
+            if (dateCol >= 0 && !inst.dateReachedOut) inst.dateReachedOut = get(dateCol);
+            if (responseCol >= 0 && !inst.response) inst.response = get(responseCol);
+            if (movingCol >= 0 && !inst.movingForward) inst.movingForward = get(movingCol);
+            if (nextStepsCol >= 0 && !inst.nextSteps) inst.nextSteps = get(nextStepsCol);
+
+            if ((contactNameCol >= 0 || contactEmailCol >= 0) && (get(contactNameCol) || get(contactEmailCol))) {
+              if (mergeContact(inst, { name: get(contactNameCol), email: get(contactEmailCol) })) mergedContacts++;
+            } else if (contactBlockCol >= 0) {
+              const list = parseContactBlock(get(contactBlockCol));
+              for (const c of list) if (mergeContact(inst, c)) mergedContacts++;
+            }
+          }
+
+          persistState();
+          renderAll();
+          alert("CSV import complete.\n\nInstitutions: " + created + " new\nContacts added/merged: " + mergedContacts + "\nRows skipped (no name): " + skipped);
+        } catch (err) {
+          alert("Could not import CSV: " + err.message);
+        }
+        importCsvInput.value = "";
+      };
+      reader.readAsText(file);
+    });
 
     importJsonInput.addEventListener("change", function () {
       const file = importJsonInput.files[0];
