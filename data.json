@@ -20,7 +20,7 @@
           "response": "Follow up",
           "movingForward": "Yes",
           "nextSteps": "We need to send Investment materials asap",
-          "reachedOut": false
+          "reachedOut": true
         }
       ],
       "tasks": [
