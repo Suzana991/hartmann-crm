@@ -765,10 +765,9 @@
     }
 
     async function saveToGithub() {
-      setStatus("saving", "Saving to GitHub&hellip;");
       const content = utf8ToBase64(JSON.stringify(state, null, 2));
-      let tried = 0;
-      while (tried < 3) {
+      let lastErr = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
         try {
           let sha = null;
           try {
@@ -785,29 +784,47 @@
           if (sha) body.sha = sha;
           const resp = await apiPut("contents/" + DATA_PATH, body);
           lastSavedHash = hashState();
-          setStatus("saved", "Saved to GitHub &middot; " + new Date().toLocaleTimeString());
+          setStatus("saved", "Saved to GitHub - " + new Date().toLocaleTimeString());
           return resp;
         } catch (err) {
-          if (err && err.status === 409 && tried < 2) {
-            tried++;
-            await new Promise(function (r) { setTimeout(r, 400); });
+          lastErr = err;
+          if (err && (err.status === 409 || err.status === 422)) {
+            await new Promise(function (r) { setTimeout(r, 500 * (attempt + 1)); });
             continue;
           }
-          if (err && err.status === 422 && tried < 2) {
-            tried++;
-            await new Promise(function (r) { setTimeout(r, 400); });
-            continue;
-          }
-          setStatus("error", "Error saving &middot; " + (err.message || "unknown"));
-          throw err;
+          break;
         }
       }
+      setStatus("error", "Error saving: " + (lastErr && lastErr.message ? lastErr.message : "failed"));
+      throw lastErr;
     }
 
+    let saveInFlight = false;
+    let needsSave = false;
     let saveTimer = null;
+
     function persistState() {
+      needsSave = true;
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(function () { saveToGithub().catch(function () {}); }, 700);
+      saveTimer = setTimeout(function () { flushSave(); }, 500);
+    }
+
+    async function flushSave() {
+      if (!needsSave || saveInFlight) return;
+      needsSave = false;
+      saveInFlight = true;
+      setStatus("saving", "Saving to GitHub...");
+      try {
+        await saveToGithub();
+      } catch (err) {
+        /* status already set by saveToGithub */
+      } finally {
+        saveInFlight = false;
+        if (needsSave) {
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(function () { flushSave(); }, 100);
+        }
+      }
     }
 
     /* ---------- Rendering ---------- */
@@ -1508,7 +1525,7 @@
       if (lastSavedHash !== null && hashState() !== lastSavedHash) {
         if (!confirm("You have unsaved local changes. Reload anyway and discard them?")) return;
       }
-      setStatus("saving", "Loading&hellip;");
+      setStatus("saving", "Loading...");
       loadFromGithub()
         .then(function (loaded) {
           state = loaded;
@@ -1516,12 +1533,12 @@
           searchTerm = "";
           searchInput.value = "";
           lastSavedHash = hashState();
-          persistState(); clearTimeout(saveTimer);
-          setStatus("saved", "Loaded from GitHub &middot; " + new Date().toLocaleTimeString());
+          clearTimeout(saveTimer); needsSave = false;
+          setStatus("saved", "Loaded from GitHub - " + new Date().toLocaleTimeString());
           renderAll();
         })
         .catch(function (err) {
-          setStatus("error", "Error loading &middot; " + (err.message || "unknown"));
+          setStatus("error", "Error loading - " + (err.message || "unknown"));
         });
     });
 
@@ -1538,17 +1555,17 @@
 
     themeToggle.addEventListener("click", toggleTheme);
     initTheme();
-    setStatus("saving", "Loading from GitHub&hellip;");
+    setStatus("saving", "Loading from GitHub...");
     loadFromGithub()
       .then(function (loaded) {
         state = loaded;
         activeProjectId = state.activeProjectId || null;
         lastSavedHash = hashState();
-        setStatus("saved", "Loaded from GitHub &middot; " + new Date().toLocaleTimeString());
+        setStatus("saved", "Loaded from GitHub - " + new Date().toLocaleTimeString());
         renderAll();
       })
       .catch(function (err) {
-        setStatus("error", "Error loading &middot; " + (err.message || "unknown"));
+        setStatus("error", "Error loading - " + (err.message || "unknown"));
         renderAll();
       });
   </script>
