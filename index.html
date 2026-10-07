@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple CRM - Projects & Outreach Tracker</title>
+  <style>
+    :root {
+      --bg: #0f1026;
+      --panel: #1f2237;
+      --card: #2a2e4f;
+      --text: #f4f4f9;
+      --subtext: #bfc0d0;
+      --accent: #6c9cff;
+      --success: #3fb984;
+      --warning: #f4b942;
+      --danger: #f25c54;
+      --border: #3b3f63;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+    }
+
+    body {
+      background: radial-gradient(circle at top, #272b52, var(--bg));
+      line-height: 1.6;
+      padding: 24px;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 4px;
+    }
+
+    header p {
+      color: var(--subtext);
+      font-size: 0.95rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 30px 60px -40px rgba(108, 156, 255, 0.8);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-header h2 {
+      font-size: 1rem;
+    }
+
+    .projects-list {
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+    }
+
+    .project-tab {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    .project-tab.active {
+      background: rgba(108, 156, 255, 0.25);
+    }
+
+    .project-tab:not(.active):hover {
+      background: rgba(108, 156, 255, 0.12);
+    }
+
+    .project-tab-name {
+      font-weight: 600;
+    }
+
+    .project-tab-meta {
+      color: var(--subtext);
+      font-size: 0.85rem;
+    }
+
+    .ghost-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--subtext);
+      font-size: 0.9rem;
+      padding: 8px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .ghost-btn:hover {
+      color: var(--text);
+    }
+
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(108, 156, 255, 0.9);
+      background: radial-gradient(circle at top, rgba(154, 183, 255, 0.9), rgba(108, 156, 255, 0.9));
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 20px 40px -25px rgba(108, 156, 255, 1);
+    }
+
+    .primary-btn.ghost {
+      background: transparent;
+      border-color: var(--border);
+      box-shadow: none;
+      font-weight: 500;
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .content-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .content-title-group h2 {
+      font-size: 1.4rem;
+    }
+
+    .content-title-group p {
+      color: var(--subtext);
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .table-wrapper {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 40px 70px -50px rgba(108, 156, 255, 0.7);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1400px;
+      font-size: 0.95rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 14px 18px;
+      color: var(--subtext);
+      font-weight: 600;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(59, 63, 99, 0.8);
+      vertical-align: top;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    tbody tr:hover {
+      background: rgba(108, 156, 255, 0.08);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--subtext);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .tag-accent {
+      border-color: rgba(108, 156, 255, 0.9);
+      color: var(--text);
+    }
+
+    .tag-success {
+      border-color: rgba(63, 185, 132, 0.9);
+    }
+
+    .tag-warning {
+      border-color: rgba(244, 185, 66, 0.9);
+    }
+
+    .tag-danger {
+      border-color: rgba(242, 92, 84, 0.9);
+    }
+
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--subtext);
+    }
+
+    .row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(39, 43, 82, 0.9), rgba(15, 16, 38, 0.95));
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 10;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal {
+      width: min(1100px, 100%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 60px 120px -60px rgba(108, 156, 255, 0.9);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 26px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-body {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px 22px;
+      padding: 24px 26px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      color: var(--subtext);
+      font-size: 0.9rem;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(15, 16, 38, 0.6);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(108, 156, 255, 0.6);
+      outline-offset: 1px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px 26px;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Outreach Tracker CRM</h1>
+    <p>Track which financial institutions you reached out to, per project</p>
+  </header>
+
+  <main class="layout">
+    <aside class="panel">
+      <div class="panel-header">
+        <h2>Projects</h2>
+        <button class="ghost-btn" id="add-project-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 3.33325V12.6666" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M3.33337 8H12.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Add project
+        </button>
+      </div>
+      <div class="projects-list" id="projects-list"></div>
+    </aside>
+
+    <section class="content">
+      <div class="content-header">
+        <div class="content-title-group">
+          <h2 id="active-project-title">Select or add a project</h2>
+          <p id="active-project-subtitle">No project selected</p>
+        </div>
+        <div class="actions-row">
+          <button class="primary-btn ghost" id="rename-project-btn" disabled>
+            Rename project
+          </button>
+          <button class="primary-btn ghost" id="delete-project-btn" disabled>
+            Delete project
+          </button>
+          <button class="primary-btn" id="add-institution-btn" disabled>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 3.33325V12.6666" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <path d="M3.33337 8H12.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            Add institution
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Company name</th>
+                <th>Type</th>
+                <th>Contact information</th>
+                <th>Importance</th>
+                <th>Who reached out</th>
+                <th>Date reached out</th>
+                <th>Response</th>
+                <th>Moving forward</th>
+                <th>Next steps</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="institutions-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="empty-state" hidden>
+          <p>No institutions added yet for this project.</p>
+          <p style="margin-top: 8px;">Click "Add institution" to create your first entry.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="institution-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Add institution</h2>
+        <button class="ghost-btn" id="close-modal-btn">
+          Close
+        </button>
+      </div>
+      <form id="institution-form">
+        <div class="modal-body">
+          <div class="field">
+            <label for="company-name">Company name</label>
+            <input id="company-name" name="companyName" required placeholder="e.g. Goldman Sachs" />
+          </div>
+          <div class="field">
+            <label for="company-type">Type</label>
+            <select id="company-type" name="companyType" required>
+              <option value="" disabled selected>Select type</option>
+              <option value="Family Office">Family Office</option>
+              <option value="Bank">Bank</option>
+              <option value="Private Bank">Private Bank</option>
+              <option value="Wealth Manager">Wealth Manager</option>
+              <option value="Fund / LP">Fund / LP</option>
+              <option value="Multi-Family Office">Multi-Family Office</option>
+              <option value="Broker Dealer">Broker Dealer</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="contact-info">Contact information</label>
+            <textarea id="contact-info" name="contactInfo" placeholder="Name, email, phone, title, LinkedIn etc."></textarea>
+          </div>
+          <div class="field">
+            <label for="importance">Importance</label>
+            <select id="importance" name="importance" required>
+              <option value="" disabled selected>Select</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="who-reached-out">Who reached out</label>
+            <select id="who-reached-out" name="whoReachedOut" required>
+              <option value="" disabled selected>Select</option>
+              <option value="Suzana">Suzana</option>
+              <option value="Bruno">Bruno</option>
+              <option value="Both">Both</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="date-reached-out">Date reached out</label>
+            <input id="date-reached-out" name="dateReachedOut" type="date" />
+          </div>
+          <div class="field">
+            <label for="response">Response</label>
+            <select id="response" name="response">
+              <option value="Pending">Pending</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="Follow up">Follow up</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="moving-forward">Moving forward</label>
+            <select id="moving-forward" name="movingForward">
+              <option value="TBD">TBD</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="On hold">On hold</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="next-steps">Next steps</label>
+            <textarea id="next-steps" name="nextSteps" placeholder="e.g. Send deck by Friday, call next week..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="primary-btn ghost" type="button" id="cancel-modal-btn">Cancel</button>
+          <button class="primary-btn" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "simple-crm-projects";
+    const projectsListEl = document.getElementById("projects-list");
+    const addProjectBtn = document.getElementById("add-project-btn");
+    const activeProjectTitle = document.getElementById("active-project-title");
+    const activeProjectSubtitle = document.getElementById("active-project-subtitle");
+    const renameProjectBtn = document.getElementById("rename-project-btn");
+    const deleteProjectBtn = document.getElementById("delete-project-btn");
+    const addInstitutionBtn = document.getElementById("add-institution-btn");
+    const institutionsTbody = document.getElementById("institutions-tbody");
+    const emptyState = document.getElementById("empty-state");
+    const modal = document.getElementById("institution-modal");
+    const modalTitle = document.getElementById("modal-title");
+    const closeModalBtn = document.getElementById("close-modal-btn");
+    const cancelModalBtn = document.getElementById("cancel-modal-btn");
+    const institutionForm = document.getElementById("institution-form");
+
+    let state = loadState();
+    let activeProjectId = state.activeProjectId || null;
+    let editingInstitutionId = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { projects: [], activeProjectId: null };
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.projects)) parsed.projects = [];
+        return parsed;
+      } catch (error) {
+        console.warn("Failed to load CRM data", error);
+        return { projects: [], activeProjectId: null };
+      }
+    }
+
+    function persistState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      return value;
+    }
+
+    function renderProjects() {
+      projectsListEl.innerHTML = "";
+      if (state.projects.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.style.padding = "24px";
+        empty.textContent = "No projects yet";
+        projectsListEl.appendChild(empty);
+        return;
+      }
+
+      for (const project of state.projects) {
+        const btn = document.createElement("button");
+        btn.className = "project-tab" + (project.id === activeProjectId ? " active" : "");
+        btn.dataset.id = project.id;
+        btn.innerHTML = `
+          <div>
+            <div class="project-tab-name">${escapeHtml(project.name)}</div>
+            <div class="project-tab-meta">${(project.institutions || []).length} institution${(project.institutions || []).length === 1 ? "" : "s"}</div>
+          </div>
+        `;
+        btn.addEventListener("click", () => {
+          activeProjectId = project.id;
+          state.activeProjectId = activeProjectId;
+          persistState();
+          renderAll();
+        });
+        projectsListEl.appendChild(btn);
+      }
+    }
+
+    function renderAll() {
+      renderProjects();
+      renderContent();
+    }
+
+    function renderContent() {
+      const project = getActiveProject();
+      if (!project) {
+        activeProjectTitle.textContent = "Select or add a project";
+        activeProjectSubtitle.textContent = "No project selected";
+        renameProjectBtn.disabled = true;
+        deleteProjectBtn.disabled = true;
+        addInstitutionBtn.disabled = true;
+        institutionsTbody.innerHTML = "";
+        emptyState.hidden = false;
+        emptyState.querySelectorAll("p")[0].textContent = "No project selected.";
+        emptyState.querySelectorAll("p")[1].textContent = "Create a project from the left panel to get started.";
+        return;
+      }
+
+      activeProjectTitle.textContent = project.name;
+      activeProjectSubtitle.textContent = `${(project.institutions || []).length} institution${(project.institutions || []).length === 1 ? "" : "s"} tracked`;
+      renameProjectBtn.disabled = false;
+      deleteProjectBtn.disabled = false;
+      addInstitutionBtn.disabled = false;
+
+      institutionsTbody.innerHTML = "";
+      const list = project.institutions || [];
+      if (list.length === 0) {
+        emptyState.hidden = false;
+        emptyState.querySelectorAll("p")[0].textContent = "No institutions added yet for this project.";
+        emptyState.querySelectorAll("p")[1].textContent = "Click \"Add institution\" to create your first entry.";
+        return;
+      }
+
+      emptyState.hidden = true;
+      for (const inst of list) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(inst.companyName || "—")}</td>
+          <td><span class="tag">${escapeHtml(inst.companyType || "—")}</span></td>
+          <td>${escapeHtml(inst.contactInfo || "—").replace(/\n/g, "<br>")}</td>
+          <td>${renderImportance(inst.importance)}</td>
+          <td><span class="tag">${escapeHtml(inst.whoReachedOut || "—")}</span></td>
+          <td>${formatDate(inst.dateReachedOut)}</td>
+          <td>${renderResponse(inst.response)}</td>
+          <td>${renderMovingForward(inst.movingForward)}</td>
+          <td>${escapeHtml(inst.nextSteps || "—").replace(/\n/g, "<br>")}</td>
+          <td>
+            <div class="row-actions">
+              <button class="ghost-btn" data-action="edit" data-id="${escapeAttr(inst.id)}">Edit</button>
+              <button class="ghost-btn" data-action="delete" data-id="${escapeAttr(inst.id)}">Delete</button>
+            </div>
+          </td>
+        `;
+        institutionsTbody.appendChild(tr);
+      }
+    }
+
+    function renderImportance(value) {
+      const v = value || "—";
+      if (v === "High") return `<span class="tag tag-danger">High</span>`;
+      if (v === "Medium") return `<span class="tag tag-warning">Medium</span>`;
+      if (v === "Low") return `<span class="tag">Low</span>`;
+      return `<span class="tag">${escapeHtml(v)}</span>`;
+    }
+
+    function renderResponse(value) {
+      const v = value || "Pending";
+      if (v === "Yes") return `<span class="tag tag-success">Yes</span>`;
+      if (v === "No") return `<span class="tag tag-danger">No</span>`;
+      if (v === "Follow up") return `<span class="tag tag-warning">Follow up</span>`;
+      return `<span class="tag">Pending</span>`;
+    }
+
+    function renderMovingForward(value) {
+      const v = value || "TBD";
+      if (v === "Yes") return `<span class="tag tag-success">Yes</span>`;
+      if (v === "No") return `<span class="tag tag-danger">No</span>`;
+      if (v === "On hold") return `<span class="tag tag-warning">On hold</span>`;
+      return `<span class="tag">TBD</span>`;
+    }
+
+    function getActiveProject() {
+      if (!activeProjectId) return null;
+      return state.projects.find(p => p.id === activeProjectId) || null;
+    }
+
+    function openModal(mode, institution) {
+      if (mode === "add") {
+        modalTitle.textContent = "Add institution";
+        institutionForm.reset();
+        editingInstitutionId = null;
+      } else {
+        modalTitle.textContent = "Edit institution";
+        editingInstitutionId = institution.id;
+        document.getElementById("company-name").value = institution.companyName || "";
+        document.getElementById("company-type").value = institution.companyType || "";
+        document.getElementById("contact-info").value = institution.contactInfo || "";
+        document.getElementById("importance").value = institution.importance || "";
+        document.getElementById("who-reached-out").value = institution.whoReachedOut || "";
+        document.getElementById("date-reached-out").value = institution.dateReachedOut || "";
+        document.getElementById("response").value = institution.response || "Pending";
+        document.getElementById("moving-forward").value = institution.movingForward || "TBD";
+        document.getElementById("next-steps").value = institution.nextSteps || "";
+      }
+      modal.classList.add("active");
+      document.getElementById("company-name").focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove("active");
+      editingInstitutionId = null;
+    }
+
+    addProjectBtn.addEventListener("click", () => {
+      const name = prompt("Project name:");
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const project = {
+        id: uid(),
+        name: trimmed,
+        institutions: []
+      };
+      state.projects.push(project);
+      activeProjectId = project.id;
+      state.activeProjectId = activeProjectId;
+      persistState();
+      renderAll();
+    });
+
+    renameProjectBtn.addEventListener("click", () => {
+      const project = getActiveProject();
+      if (!project) return;
+      const name = prompt("New project name:", project.name);
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      project.name = trimmed;
+      persistState();
+      renderAll();
+    });
+
+    deleteProjectBtn.addEventListener("click", () => {
+      const project = getActiveProject();
+      if (!project) return;
+      const ok = confirm(`Delete "${project.name}" and all its institutions? This can't be undone.`);
+      if (!ok) return;
+      state.projects = state.projects.filter(p => p.id !== project.id);
+      if (activeProjectId === project.id) {
+        activeProjectId = state.projects[0]?.id || null;
+        state.activeProjectId = activeProjectId;
+      }
+      persistState();
+      renderAll();
+    });
+
+    addInstitutionBtn.addEventListener("click", () => openModal("add"));
+
+    closeModalBtn.addEventListener("click", closeModal);
+    cancelModalBtn.addEventListener("click", closeModal);
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeModal();
+    });
+
+    institutionForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const project = getActiveProject();
+      if (!project) return;
+
+      const formData = new FormData(institutionForm);
+      const entry = {
+        id: editingInstitutionId || uid(),
+        companyName: formData.get("companyName").toString().trim(),
+        companyType: formData.get("companyType").toString(),
+        contactInfo: formData.get("contactInfo").toString().trim(),
+        importance: formData.get("importance").toString(),
+        whoReachedOut: formData.get("whoReachedOut").toString(),
+        dateReachedOut: formData.get("dateReachedOut").toString(),
+        response: formData.get("response").toString(),
+        movingForward: formData.get("movingForward").toString(),
+        nextSteps: formData.get("nextSteps").toString().trim()
+      };
+
+      if (!project.institutions) project.institutions = [];
+      if (editingInstitutionId) {
+        const idx = project.institutions.findIndex(i => i.id === editingInstitutionId);
+        if (idx >= 0) project.institutions[idx] = entry;
+      } else {
+        project.institutions.push(entry);
+      }
+
+      // Keep newest first? Optional, but nice
+      project.institutions.sort((a, b) => {
+        const da = a.dateReachedOut || "";
+        const db = b.dateReachedOut || "";
+        if (da === db) return 0;
+        return da < db ? 1 : -1;
+      });
+
+      persistState();
+      closeModal();
+      renderAll();
+    });
+
+    institutionsTbody.addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const project = getActiveProject();
+      if (!project || !id) return;
+
+      if (action === "edit") {
+        const inst = (project.institutions || []).find(i => i.id === id);
+        if (inst) openModal("edit", inst);
+      }
+
+      if (action === "delete") {
+        const inst = (project.institutions || []).find(i => i.id === id);
+        if (!inst) return;
+        const ok = confirm(`Delete ${inst.companyName || "this institution"}?`);
+        if (!ok) return;
+        project.institutions = (project.institutions || []).filter(i => i.id !== id);
+        persistState();
+        renderAll();
+      }
+    });
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
+    }
+
+    renderAll();
+  </script>
+</body>
+
+</html>
