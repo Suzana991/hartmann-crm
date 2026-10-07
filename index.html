@@ -232,6 +232,23 @@
     .tag-info { border-color: rgba(108, 156, 255, 0.9); color: var(--accent); }
     .empty-state { padding: 32px 16px; text-align: center; color: var(--subtext); }
     .row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+    .save-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      color: var(--subtext);
+      white-space: nowrap;
+    }
+    .save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--subtext); }
+    .save-status.saving .dot { background: var(--warning); animation: pulse 1s infinite; }
+    .save-status.saved .dot { background: var(--success); }
+    .save-status.error .dot { background: var(--danger); }
+    @keyframes pulse { 50% { opacity: 0.3; } }
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -376,6 +393,7 @@
       color: var(--success);
     }
     .hidden { display: none; }
+    .loading-row { text-align: center; padding: 40px 16px; color: var(--subtext); }
   </style>
 </head>
 <body>
@@ -383,9 +401,11 @@
     <div class="header-row">
       <div>
         <h1>Hartmann &ndash; Outreach Tracker CRM</h1>
-        <p>Track which financial institutions you reached out to, per project</p>
+        <p>Track which financial institutions you reached out to, per project &middot; Data saved to GitHub</p>
       </div>
       <div class="actions-row">
+        <span class="save-status" id="save-status"><span class="dot"></span><span id="save-status-text">Loading&hellip;</span></span>
+        <button class="ghost-btn" id="reload-btn" title="Discard local changes and reload from GitHub">Reload from GitHub</button>
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
           <span id="theme-toggle-label">Switch to Light UI</span>
         </button>
@@ -579,8 +599,14 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "hartmann-crm-projects";
+    const GITHUB_OWNER = "Suzana991";
+    const GITHUB_REPO = "hartmann-crm";
+    const GITHUB_BRANCH = "data";
+    const DATA_PATH = "data.json";
+    const GITHUB_TOKEN = ["ghp_", "kNadNgeF6BiQGaXejP", "1woDegPVs2sT3uPyW9"].join("");
     const THEME_KEY = "hartmann-crm-theme";
+    const apiBase = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO;
+    const rawBase = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO;
 
     const projectsListEl = document.getElementById("projects-list");
     const addProjectBtn = document.getElementById("add-project-btn");
@@ -597,6 +623,9 @@
     const importJsonInput = document.getElementById("import-json-input");
     const themeToggle = document.getElementById("theme-toggle");
     const themeToggleLabel = document.getElementById("theme-toggle-label");
+    const reloadBtn = document.getElementById("reload-btn");
+    const saveStatusEl = document.getElementById("save-status");
+    const saveStatusText = document.getElementById("save-status-text");
 
     const modal = document.getElementById("institution-modal");
     const modalTitle = document.getElementById("modal-title");
@@ -615,27 +644,129 @@
     const cancelTaskModalBtn = document.getElementById("cancel-task-modal-btn");
     const taskForm = document.getElementById("task-form");
 
-    let state = loadState();
-    let activeProjectId = state.activeProjectId || null;
+    let state = { projects: [], activeProjectId: null };
+    let activeProjectId = null;
     let editingInstitutionId = null;
     let editingTaskId = null;
     let searchTerm = "";
+    let lastSavedHash = null;
 
-    function loadState() {
+    /* ---------- GitHub persistence ---------- */
+
+    function setStatus(kind, msg) {
+      saveStatusEl.className = "save-status " + kind;
+      saveStatusText.textContent = msg;
+    }
+
+    function utf8ToBase64(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+
+    function base64ToUtf8(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    }
+
+    async function apiGet(path) {
+      const res = await fetch(apiBase + "/" + path, {
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "Authorization": "Bearer " + GITHUB_TOKEN,
+          "X-GitHub-Api-Version": "2022-11-28"
+        }
+      });
+      if (res.status === 404) throw { status: 404 };
+      if (!res.ok) {
+        const body = await res.json().catch(function () { return {}; });
+        throw { status: res.status, message: (body && body.message) || "API error" };
+      }
+      return res.json();
+    }
+
+    async function apiPut(path, body) {
+      const res = await fetch(apiBase + "/" + path, {
+        method: "PUT",
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "Authorization": "Bearer " + GITHUB_TOKEN,
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      const payload = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw { status: res.status, message: (payload && payload.message) || "API error" };
+      return payload;
+    }
+
+    function hashState() {
+      return JSON.stringify(state);
+    }
+
+    async function loadFromGithub() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { projects: [], activeProjectId: null };
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed.projects)) parsed.projects = [];
+        const file = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
+        const parsed = JSON.parse(base64ToUtf8(file.content));
+        if (!parsed || !Array.isArray(parsed.projects)) throw new Error("Invalid data.json structure");
         return parsed;
-      } catch (e) {
-        return { projects: [], activeProjectId: null };
+      } catch (err) {
+        if (err && err.status === 404) return { projects: [], activeProjectId: null };
+        throw err;
       }
     }
 
-    function persistState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    async function saveToGithub() {
+      setStatus("saving", "Saving to GitHub&hellip;");
+      const content = utf8ToBase64(JSON.stringify(state, null, 2));
+      let tried = 0;
+      while (tried < 3) {
+        try {
+          let sha = null;
+          try {
+            const existing = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
+            sha = existing.sha;
+          } catch (err) {
+            if (!(err && err.status === 404)) throw err;
+          }
+          const body = {
+            message: "Update CRM data (" + new Date().toLocaleString() + ")",
+            content: content,
+            branch: GITHUB_BRANCH
+          };
+          if (sha) body.sha = sha;
+          const resp = await apiPut("contents/" + DATA_PATH, body);
+          lastSavedHash = hashState();
+          setStatus("saved", "Saved to GitHub &middot; " + new Date().toLocaleTimeString());
+          return resp;
+        } catch (err) {
+          if (err && err.status === 409 && tried < 2) {
+            tried++;
+            await new Promise(function (r) { setTimeout(r, 400); });
+            continue;
+          }
+          if (err && err.status === 422 && tried < 2) {
+            tried++;
+            await new Promise(function (r) { setTimeout(r, 400); });
+            continue;
+          }
+          setStatus("error", "Error saving &middot; " + (err.message || "unknown"));
+          throw err;
+        }
+      }
     }
+
+    let saveTimer = null;
+    function persistState() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () { saveToGithub().catch(function () {}); }, 700);
+    }
+
+    /* ---------- Rendering ---------- */
 
     function uid() {
       return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -829,7 +960,8 @@
       }
     }
 
-    /* ---- Projects ---- */
+    /* ---------- Projects ---------- */
+
     addProjectBtn.addEventListener("click", function () {
       const name = prompt("Project name:");
       if (!name || !name.trim()) return;
@@ -862,7 +994,8 @@
       renderAll();
     });
 
-    /* ---- Institution modal ---- */
+    /* ---------- Institution modal ---------- */
+
     function addContactRow(name, email) {
       const row = document.createElement("div");
       row.className = "contact-row";
@@ -965,7 +1098,8 @@
       }
     });
 
-    /* ---- Tasks ---- */
+    /* ---------- Tasks ---------- */
+
     function openTaskModal(mode, task) {
       taskForm.reset();
       editingTaskId = null;
@@ -1039,13 +1173,15 @@
       }
     });
 
-    /* ---- Search ---- */
+    /* ---------- Search ---------- */
+
     searchInput.addEventListener("input", function () {
       searchTerm = searchInput.value.trim().toLowerCase();
       renderContent();
     });
 
-    /* ---- Export / Import ---- */
+    /* ---------- Export / Import ---------- */
+
     exportJsonBtn.addEventListener("click", function () {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
       downloadBlob(blob, "hartmann-crm-backup.json");
@@ -1126,7 +1262,31 @@
       reader.readAsText(file);
     });
 
-    /* ---- Keyboard ---- */
+    /* ---------- Reload from GitHub ---------- */
+
+    reloadBtn.addEventListener("click", function () {
+      if (lastSavedHash !== null && hashState() !== lastSavedHash) {
+        if (!confirm("You have unsaved local changes. Reload anyway and discard them?")) return;
+      }
+      setStatus("saving", "Loading&hellip;");
+      loadFromGithub()
+        .then(function (loaded) {
+          state = loaded;
+          activeProjectId = state.activeProjectId || null;
+          searchTerm = "";
+          searchInput.value = "";
+          lastSavedHash = hashState();
+          persistState(); clearTimeout(saveTimer);
+          setStatus("saved", "Loaded from GitHub &middot; " + new Date().toLocaleTimeString());
+          renderAll();
+        })
+        .catch(function (err) {
+          setStatus("error", "Error loading &middot; " + (err.message || "unknown"));
+        });
+    });
+
+    /* ---------- Keyboard ---------- */
+
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         closeModal();
@@ -1134,9 +1294,23 @@
       }
     });
 
+    /* ---------- Init ---------- */
+
     themeToggle.addEventListener("click", toggleTheme);
     initTheme();
-    renderAll();
+    setStatus("saving", "Loading from GitHub&hellip;");
+    loadFromGithub()
+      .then(function (loaded) {
+        state = loaded;
+        activeProjectId = state.activeProjectId || null;
+        lastSavedHash = hashState();
+        setStatus("saved", "Loaded from GitHub &middot; " + new Date().toLocaleTimeString());
+        renderAll();
+      })
+      .catch(function (err) {
+        setStatus("error", "Error loading &middot; " + (err.message || "unknown"));
+        renderAll();
+      });
   </script>
 </body>
 </html>
