@@ -22,7 +22,13 @@
           "nextSteps": "We need to send Investment materials asap"
         }
       ],
-      "tasks": []
+      "tasks": [
+        {
+          "id": "muylvmroopa9r9",
+          "title": "Get total project cost for Palazzo Rici",
+          "status": "Pending"
+        }
+      ]
     }
   ],
   "activeProjectId": "muylo72ocukffk"
