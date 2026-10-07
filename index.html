@@ -226,8 +226,9 @@
     .table-scroll { overflow-x: auto; }
     table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
-      min-width: 1200px;
+      min-width: 1250px;
       font-size: 0.98rem;
     }
     thead th {
@@ -238,14 +239,32 @@
       font-size: 0.95rem;
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     tbody td {
       padding: 8px 12px;
       border-bottom: 1px solid var(--border);
       vertical-align: top;
       word-break: break-word;
+      overflow-wrap: anywhere;
     }
     tbody tr:hover { background: var(--row-hover); }
+    .contact-line { display: block; font-size: 0.9rem; margin: 2px 0; }
+    .contact-line .cl-name { font-weight: 600; }
+    .contact-line .cl-title { color: var(--subtext); font-style: italic; }
+    .contact-line .cl-email { color: var(--accent); overflow-wrap: anywhere; }
+    .who-select {
+      width: 100%;
+      max-width: 110px;
+      padding: 3px 4px;
+      font-size: 0.92rem;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--input-bg);
+    }
+    .who-select:hover, .who-select:focus { border-color: var(--accent); outline: none; }
     .tag {
       display: inline-flex;
       align-items: center;
@@ -498,6 +517,19 @@
       <div class="table-wrapper">
         <div class="table-scroll">
           <table>
+            <colgroup>
+              <col style="width: 120px" />
+              <col style="width: 150px" />
+              <col style="width: 80px" />
+              <col style="width: 200px" />
+              <col style="width: 70px" />
+              <col style="width: 90px" />
+              <col style="width: 110px" />
+              <col style="width: 80px" />
+              <col style="width: 80px" />
+              <col style="width: 170px" />
+              <col style="width: 100px" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Reached out</th>
@@ -1049,11 +1081,13 @@
         else tr.className = "not-reached";
         const contactsHtml = (inst.contacts && inst.contacts.length)
           ? inst.contacts.map(function (c) {
-              return '<span class="tag tag-info">' + escapeHtml(c.name || "?") +
-                (c.title ? ' &middot; <em>' + escapeHtml(c.title) + "</em>" : "") +
-                (c.email ? " &middot; " + escapeHtml(c.email) : "") + "</span>";
+              return '<span class="contact-line">' +
+                '<span class="cl-name">' + escapeHtml(c.name || "?") + "</span>" +
+                (c.title ? ' <span class="cl-title">' + escapeHtml(c.title) + "</span>" : "") +
+                (c.email ? ' <span class="cl-email">' + escapeHtml(c.email) + "</span>" : "") +
+                "</span>";
             }).join("")
-          : escapeHtml(inst.contactInfo || "—");
+          : '<span class="contact-line">' + escapeHtml(inst.contactInfo || "—") + "</span>";
         const reachedPill = inst.reachedOut
           ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
           : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
@@ -1063,7 +1097,7 @@
           '<td><span class="tag">' + escapeHtml(inst.companyType || "—") + "</span></td>" +
           "<td>" + contactsHtml + "</td>" +
           "<td>" + renderImportance(inst.importance) + "</td>" +
-          '<td><span class="tag">' + escapeHtml(inst.whoReachedOut || "—") + "</span></td>" +
+          "<td>" + whoSelectHtml(inst) + "</td>" +
           "<td>" + (inst.dateReachedOut || "—") + "</td>" +
           "<td>" + renderResponse(inst.response) + "</td>" +
           "<td>" + renderMovingForward(inst.movingForward) + "</td>" +
@@ -1098,6 +1132,18 @@
       if (v === "No") return '<span class="tag tag-danger">No</span>';
       if (v === "On hold") return '<span class="tag tag-warning">On hold</span>';
       return '<span class="tag">TBD</span>';
+    }
+
+    const REPS = ["Suzana", "Bruno", "Both", "Other"];
+
+    function whoSelectHtml(inst) {
+      let out = '<select class="who-select" data-who data-id="' + escapeHtml(inst.id) + '" title="Who reached out">' +
+        '<option value=""' + (!inst.whoReachedOut ? " selected" : "") + ">—</option>";
+      REPS.forEach(function (r) {
+        out += '<option value="' + r + '"' + (inst.whoReachedOut === r ? " selected" : "") + ">" + r + "</option>";
+      });
+      out += "</select>";
+      return out;
     }
 
     function renderTasks() {
@@ -1247,6 +1293,7 @@
         const existing = project.institutions.find(function (i) { return i.id === editingInstitutionId; });
         if (existing && existing.reachedOut) entry.reachedOut = true;
       }
+      if (entry.whoReachedOut) localStorage.setItem("crm-last-who", entry.whoReachedOut);
       if (!project.institutions) project.institutions = [];
       if (editingInstitutionId) {
         const idx = project.institutions.findIndex(function (i) { return i.id === editingInstitutionId; });
@@ -1273,6 +1320,11 @@
         if (inst.reachedOut && !inst.dateReachedOut) {
           inst.dateReachedOut = new Date().toISOString().slice(0, 10);
         }
+        // If marking as reached and whoReachedOut is empty, use last used rep
+        if (inst.reachedOut && !inst.whoReachedOut) {
+          const last = localStorage.getItem("crm-last-who");
+          if (last && REPS.indexOf(last) !== -1) inst.whoReachedOut = last;
+        }
         persistState();
         renderAll();
       }
@@ -1282,6 +1334,20 @@
         persistState();
         renderAll();
       }
+    });
+
+    institutionsTbody.addEventListener("change", function (e) {
+      const sel = e.target.closest("select.who-select");
+      if (!sel) return;
+      const project = getActiveProject();
+      if (!project) return;
+      const id = sel.dataset.id;
+      const inst = (project.institutions || []).find(function (i) { return i.id === id; });
+      if (!inst) return;
+      inst.whoReachedOut = sel.value || "";
+      localStorage.setItem("crm-last-who", inst.whoReachedOut);
+      persistState();
+      renderAll();
     });
 
     /* ---------- Tasks ---------- */
