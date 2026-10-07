@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple CRM - Projects & Outreach Tracker</title>
+  <title>Hartmann - Outreach Tracker CRM</title>
   <style>
     :root {
       --bg: #0f1026;
@@ -17,6 +17,25 @@
       --warning: #f4b942;
       --danger: #f25c54;
       --border: #3b3f63;
+      --input-bg: rgba(15, 16, 38, 0.6);
+      --row-hover: rgba(108, 156, 255, 0.08);
+      --shadow: 0 40px 70px -50px rgba(108, 156, 255, 0.7);
+    }
+
+    :root.light {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --card: #f1f3f7;
+      --text: #1f2237;
+      --subtext: #4f536e;
+      --accent: #3b6bff;
+      --success: #1f9d55;
+      --warning: #b7791f;
+      --danger: #d64545;
+      --border: #dce0ea;
+      --input-bg: #ffffff;
+      --row-hover: rgba(59, 107, 255, 0.06);
+      --shadow: 0 30px 60px -40px rgba(31, 34, 55, 0.25);
     }
 
     * {
@@ -28,13 +47,26 @@
     }
 
     body {
-      background: radial-gradient(circle at top, #272b52, var(--bg));
+      background: radial-gradient(circle at top, rgba(108, 156, 255, 0.12), var(--bg));
       line-height: 1.6;
       padding: 24px;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    :root.light body {
+      background: radial-gradient(circle at top, rgba(59, 107, 255, 0.08), var(--bg));
     }
 
     header {
       margin-bottom: 24px;
+    }
+
+    .header-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
     }
 
     header h1 {
@@ -64,9 +96,15 @@
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
       border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 30px 60px -40px rgba(108, 156, 255, 0.8);
+      box-shadow: var(--shadow);
       backdrop-filter: blur(12px);
       overflow: hidden;
+      transition: border 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    :root.light .panel {
+      background: var(--panel);
+      backdrop-filter: none;
     }
 
     .panel-header {
@@ -105,8 +143,16 @@
       background: rgba(108, 156, 255, 0.25);
     }
 
+    :root.light .project-tab.active {
+      background: rgba(59, 107, 255, 0.12);
+    }
+
     .project-tab:not(.active):hover {
       background: rgba(108, 156, 255, 0.12);
+    }
+
+    :root.light .project-tab:not(.active):hover {
+      background: rgba(59, 107, 255, 0.08);
     }
 
     .project-tab-name {
@@ -150,11 +196,19 @@
       box-shadow: 0 20px 40px -25px rgba(108, 156, 255, 1);
     }
 
+    :root.light .primary-btn {
+      color: #ffffff;
+      border-color: rgba(59, 107, 255, 0.9);
+      background: radial-gradient(circle at top, rgba(92, 133, 255, 0.95), rgba(59, 107, 255, 0.95));
+      box-shadow: 0 18px 40px -24px rgba(59, 107, 255, 0.9);
+    }
+
     .primary-btn.ghost {
       background: transparent;
       border-color: var(--border);
       box-shadow: none;
       font-weight: 500;
+      color: var(--text);
     }
 
     .content {
@@ -190,7 +244,12 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 40px 70px -50px rgba(108, 156, 255, 0.7);
+      box-shadow: var(--shadow);
+      transition: border 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    :root.light .table-wrapper {
+      background: var(--panel);
     }
 
     .table-scroll {
@@ -216,14 +275,14 @@
 
     tbody td {
       padding: 12px 18px;
-      border-bottom: 1px solid rgba(59, 63, 99, 0.8);
+      border-bottom: 1px solid var(--border);
       vertical-align: top;
       white-space: normal;
       word-break: break-word;
     }
 
     tbody tr:hover {
-      background: rgba(108, 156, 255, 0.08);
+      background: var(--row-hover);
     }
 
     .tag {
@@ -242,16 +301,27 @@
       color: var(--text);
     }
 
+    :root.light .tag-accent {
+      color: var(--accent);
+    }
+
     .tag-success {
       border-color: rgba(63, 185, 132, 0.9);
+      color: var(--success);
+    }
+
+    :root.light .tag-success {
+      color: var(--success);
     }
 
     .tag-warning {
       border-color: rgba(244, 185, 66, 0.9);
+      color: var(--warning);
     }
 
     .tag-danger {
       border-color: rgba(242, 92, 84, 0.9);
+      color: var(--danger);
     }
 
     .empty-state {
@@ -277,6 +347,10 @@
       z-index: 10;
     }
 
+    :root.light .modal-backdrop {
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.96), rgba(241, 243, 247, 0.98));
+    }
+
     .modal-backdrop.active {
       display: flex;
     }
@@ -286,8 +360,14 @@
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
       border: 1px solid var(--border);
       border-radius: 14px;
-      box-shadow: 0 60px 120px -60px rgba(108, 156, 255, 0.9);
+      box-shadow: var(--shadow);
       overflow: hidden;
+      transition: border 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    :root.light .modal {
+      background: var(--panel);
+      box-shadow: 0 40px 80px -50px rgba(31, 34, 55, 0.4);
     }
 
     .modal-header {
@@ -325,10 +405,11 @@
     textarea {
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: rgba(15, 16, 38, 0.6);
+      background: var(--input-bg);
       padding: 10px 12px;
       font-size: 0.95rem;
       color: var(--text);
+      transition: border 120ms ease, background 120ms ease, color 120ms ease, outline 120ms ease;
     }
 
     input:focus,
@@ -336,6 +417,12 @@
     textarea:focus {
       outline: 2px solid rgba(108, 156, 255, 0.6);
       outline-offset: 1px;
+    }
+
+    :root.light input:focus,
+    :root.light select:focus,
+    :root.light textarea:focus {
+      outline: 2px solid rgba(59, 107, 255, 0.4);
     }
 
     textarea {
@@ -350,13 +437,40 @@
       padding: 16px 26px;
       border-top: 1px solid var(--border);
     }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--subtext);
+      font-size: 0.9rem;
+      padding: 9px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .theme-toggle:hover {
+      color: var(--text);
+    }
   </style>
 </head>
 
 <body>
   <header>
-    <h1>Outreach Tracker CRM</h1>
-    <p>Track which financial institutions you reached out to, per project</p>
+    <div class="header-row">
+      <div>
+        <h1>Hartmann – Outreach Tracker CRM</h1>
+        <p>Track which financial institutions you reached out to, per project</p>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 1.33325V2.66659M8 13.3333V14.6666M14.6667 7.99992H13.3334M2.66671 7.99992H1.33337M12.714 3.2858L11.7714 4.2284M4.22863 11.7715L3.28604 12.7141M12.714 12.7141L11.7714 11.7715M4.22863 4.2284L3.28604 3.2858M10.6667 7.99992C10.6667 9.47268 9.4728 10.6666 8.00004 10.6666C6.52728 10.6666 5.33337 9.47268 5.33337 7.99992C5.33337 6.52716 6.52728 5.33325 8.00004 5.33325C9.4728 5.33325 10.6667 6.52716 10.6667 7.99992Z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span id="theme-toggle-label">Switch to Light UI</span>
+      </button>
+    </div>
   </header>
 
   <main class="layout">
@@ -512,7 +626,8 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "simple-crm-projects";
+    const STORAGE_KEY = "hartmann-crm-projects";
+    const THEME_KEY = "hartmann-crm-theme";
     const projectsListEl = document.getElementById("projects-list");
     const addProjectBtn = document.getElementById("add-project-btn");
     const activeProjectTitle = document.getElementById("active-project-title");
@@ -527,6 +642,8 @@
     const closeModalBtn = document.getElementById("close-modal-btn");
     const cancelModalBtn = document.getElementById("cancel-modal-btn");
     const institutionForm = document.getElementById("institution-form");
+    const themeToggle = document.getElementById("theme-toggle");
+    const themeToggleLabel = document.getElementById("theme-toggle-label");
 
     let state = loadState();
     let activeProjectId = state.activeProjectId || null;
@@ -547,6 +664,31 @@
 
     function persistState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function initTheme() {
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved === "light") {
+          document.documentElement.classList.add("light");
+          themeToggleLabel.textContent = "Switch to Dark UI";
+        } else {
+          document.documentElement.classList.remove("light");
+          themeToggleLabel.textContent = "Switch to Light UI";
+        }
+      } catch (error) {
+        console.warn("Failed to load theme", error);
+      }
+    }
+
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.toggle("light");
+      themeToggleLabel.textContent = isLight ? "Switch to Dark UI" : "Switch to Light UI";
+      try {
+        localStorage.setItem(THEME_KEY, isLight ? "light" : "dark");
+      } catch (error) {
+        console.warn("Failed to save theme", error);
+      }
     }
 
     function uid() {
@@ -783,7 +925,6 @@
         project.institutions.push(entry);
       }
 
-      // Keep newest first? Optional, but nice
       project.institutions.sort((a, b) => {
         const da = a.dateReachedOut || "";
         const db = b.dateReachedOut || "";
@@ -834,6 +975,8 @@
       return escapeHtml(str);
     }
 
+    themeToggle.addEventListener("click", toggleTheme);
+    initTheme();
     renderAll();
   </script>
 </body>
