@@ -3,7 +3,25 @@
     {
       "id": "muylo72ocukffk",
       "name": "Palazzo Ricci",
-      "institutions": [],
+      "institutions": [
+        {
+          "id": "muylu4skw5rfdc",
+          "companyName": "Banca Ifis",
+          "companyType": "Bank",
+          "contacts": [
+            {
+              "name": "Alessio Togni",
+              "email": "Alessio.Togni@bancaifis.it"
+            }
+          ],
+          "importance": "High",
+          "whoReachedOut": "Both",
+          "dateReachedOut": "2026-10-07",
+          "response": "Follow up",
+          "movingForward": "Yes",
+          "nextSteps": "We need to send Investment materials asap"
+        }
+      ],
       "tasks": []
     }
   ],
