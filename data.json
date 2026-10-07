@@ -19,7 +19,8 @@
           "dateReachedOut": "2026-10-07",
           "response": "Follow up",
           "movingForward": "Yes",
-          "nextSteps": "We need to send Investment materials asap"
+          "nextSteps": "We need to send Investment materials asap",
+          "reachedOut": true
         }
       ],
       "tasks": [
