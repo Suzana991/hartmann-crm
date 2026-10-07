@@ -1011,6 +1011,8 @@
         emptyState.querySelectorAll("p")[1].textContent = "Create a project from the left panel to get started.";
         return;
       }
+      const list = (project.institutions || []);
+      const count = list.length;
       const totalContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).length; }, 0);
       const reachedContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).filter(function (c) { return c.reachedOut; }).length; }, 0);
       activeProjectTitle.textContent = project.name;
@@ -1022,7 +1024,6 @@
       exportJsonBtn.disabled = false;
 
       institutionsTbody.innerHTML = "";
-      const list = (project.institutions || []);
       const filtered = list.filter(function (inst) {
         if (outreachFilter === "reached" && !(inst.contacts || []).some(function (c) { return c.reachedOut; })) return false;
         if (outreachFilter === "not" && (inst.contacts || []).every(function (c) { return c.reachedOut; })) return false;
