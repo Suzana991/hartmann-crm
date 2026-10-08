@@ -1,0 +1,10 @@
+name = "hartmann-crm-api"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+GITHUB_OWNER = "Suzana991"
+GITHUB_REPO = "hartmann-crm"
+GITHUB_BRANCH = "data"
+DATA_PATH = "data.json"
+CORS_ORIGIN = "https://suzana991.github.io"

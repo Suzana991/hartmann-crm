@@ -1,0 +1,11 @@
+{
+  "name": "hartmann-crm-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Authenticated persistence backend for the Hartmann CRM",
+  "scripts": {
+    "test": "node --test test/api.test.js test/auth.test.js",
+    "dev": "node src/dev-server.js"
+  }
+}
