@@ -9,6 +9,7 @@ function ghHeaders(cfg) {
   return {
     "Accept": "application/vnd.github+json",
     "Authorization": "Bearer " + cfg.token,
+    "User-Agent": "hartmann-crm-worker",
     "X-GitHub-Api-Version": "2022-11-28"
   };
 }

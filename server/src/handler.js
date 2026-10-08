@@ -100,7 +100,7 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
         return json(err.status, { error: err.code, message: err.message }, cors);
       }
       if (err instanceof StorageError) {
-        console.error("storage-error status:", err.status);
+        console.error("storage-error status:", err.status, err.message);
         if (err.status === 409) {
           const current = await getFile(cfg, fetchImpl).catch(() => null);
           if (current && !current.missing) {
