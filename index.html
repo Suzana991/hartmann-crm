@@ -290,8 +290,25 @@
     .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
     .checkbox-wrap { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text); }
     .checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--accent); }
-    .contacts-container { margin-top: 8px; }
+    .contacts-container { display: flex; flex-direction: column; gap: 8px; grid-column: 1 / -1; margin-top: 8px; }
     .contacts-container > label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    .contact-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.2fr 1fr 1fr 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .contact-row > .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .contact-row > .contact-field.full-width { grid-column: 1 / -2; }
+    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 18px; }
+    .contact-field label { font-size: 0.75rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
+    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+    .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
     .modal-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
     .modal-section h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
     .help-text { font-size: 0.8rem; color: var(--subtext); margin-top: 4px; }
@@ -361,7 +378,7 @@
     }
     .modal-backdrop.active { display: flex; }
     .modal {
-      width: min(900px, 100%);
+      width: min(1000px, 100%);
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -421,14 +438,6 @@
       cursor: pointer;
     }
     .theme-toggle:hover { color: var(--text); }
-    .contacts-container { display: flex; flex-direction: column; gap: 8px; grid-column: 1 / -1; }
-    .contact-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 8px;
-      align-items: start;
-    }
-    @media (max-width: 680px) { .contact-row { grid-template-columns: 1fr; } }
     .small-btn {
       padding: 6px 8px;
       font-size: 0.92rem;
