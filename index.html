@@ -281,6 +281,20 @@
       background: var(--input-bg);
     }
     .who-select:hover, .who-select:focus { border-color: var(--accent); outline: none; }
+    .contact-row { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 10px 8px; align-items: start; padding: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+    .contact-row > .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .contact-row > .contact-field.full-width { grid-column: 1 / -2; }
+    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 18px; }
+    .contact-field label { font-size: 0.75rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
+    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+    .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
+    .checkbox-wrap { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text); }
+    .checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--accent); }
+    .contacts-container { margin-top: 8px; }
+    .contacts-container > label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    .modal-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .modal-section h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+    .help-text { font-size: 0.8rem; color: var(--subtext); margin-top: 4px; }
     .tag {
       display: inline-flex;
       align-items: center;
@@ -597,39 +611,49 @@
       </div>
       <form id="institution-form">
         <div class="modal-body">
-          <div class="field">
-            <label for="company-name">Company name</label>
-            <input id="company-name" name="companyName" required placeholder="e.g. Goldman Sachs" />
-          </div>
-          <div class="field">
-            <label for="company-type">Type</label>
-            <select id="company-type" name="companyType" required>
-              <option value="" disabled selected>Select type</option>
-              <option value="Family Office">Family Office</option>
-              <option value="Bank">Bank</option>
-              <option value="Private Bank">Private Bank</option>
-              <option value="Wealth Manager">Wealth Manager</option>
-              <option value="Fund / LP">Fund / LP</option>
-              <option value="Multi-Family Office">Multi-Family Office</option>
-              <option value="Broker Dealer">Broker Dealer</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div class="contacts-container">
-            <label>Contacts (full name, title, email + outreach)</label>
-            <div id="contacts-list"></div>
-            <div>
-              <button class="ghost-btn" type="button" id="add-contact-btn">+ Add contact</button>
+          <div class="modal-section">
+            <h3>Institution details</h3>
+            <div class="field">
+              <label for="company-name">Company name</label>
+              <input id="company-name" name="companyName" required placeholder="e.g. Goldman Sachs" />
+              <span class="help-text">Official legal name of the institution</span>
+            </div>
+            <div class="field">
+              <label for="company-type">Type</label>
+              <select id="company-type" name="companyType" required>
+                <option value="" disabled selected>Select type</option>
+                <option value="Family Office">Family Office</option>
+                <option value="Bank">Bank</option>
+                <option value="Private Bank">Private Bank</option>
+                <option value="Wealth Manager">Wealth Manager</option>
+                <option value="Fund / LP">Fund / LP</option>
+                <option value="Multi-Family Office">Multi-Family Office</option>
+                <option value="Broker Dealer">Broker Dealer</option>
+                <option value="Other">Other</option>
+              </select>
+              <span class="help-text">Category for filtering and reporting</span>
+            </div>
+            <div class="field">
+              <label for="importance">Importance</label>
+              <select id="importance" name="importance" required>
+                <option value="" disabled selected>Select</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <span class="help-text">Priority level for outreach efforts</span>
             </div>
           </div>
-          <div class="field">
-            <label for="importance">Importance</label>
-            <select id="importance" name="importance" required>
-              <option value="" disabled selected>Select</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
+
+          <div class="modal-section">
+            <h3>Contacts</h3>
+            <p class="help-text">Add each person you're engaging with. Outreach fields are per-contact.</p>
+            <div class="contacts-container">
+              <div id="contacts-list"></div>
+              <div>
+                <button class="ghost-btn" type="button" id="add-contact-btn">+ Add contact</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -1254,30 +1278,30 @@
       const mf = contact.movingForward || "TBD";
       const next = contact.nextSteps || "";
       row.innerHTML =
-        '<input class="contact-name" placeholder="Full name" value="' + escapeHtml(n) + '" />' +
-        '<input class="contact-title" placeholder="Title (e.g. CEO)" value="' + escapeHtml(t) + '" />' +
-        '<input class="contact-email" type="email" placeholder="Email" value="' + escapeHtml(e) + '" />' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.85rem;color:var(--subtext)"><input type="checkbox" class="contact-reached" ' + (reached ? "checked" : "") + ' /> Reached</label>' +
-        '<select class="contact-who" style="padding:2px 4px;font-size:0.85rem;">' +
+        '<div class="contact-field"><label>Full name</label><input class="contact-name" placeholder="e.g. John Smith" value="' + escapeHtml(n) + '" /></div>' +
+        '<div class="contact-field"><label>Title</label><input class="contact-title" placeholder="e.g. CEO, Partner" value="' + escapeHtml(t) + '" /></div>' +
+        '<div class="contact-field"><label>Email</label><input class="contact-email" type="email" placeholder="john@firm.com" value="' + escapeHtml(e) + '" /></div>' +
+        '<div class="contact-field"><label>Reached out</label><label class="checkbox-wrap"><input type="checkbox" class="contact-reached" ' + (reached ? "checked" : "") + ' /><span>Yes</span></label></div>' +
+        '<div class="contact-field"><label>Who reached out</label><select class="contact-who">' +
         '<option value="">—</option>' +
         REPS.map(function (r) { return '<option value="' + r + '"' + (who === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
-        '</select>' +
-        '<input type="date" class="contact-date" value="' + escapeHtml(date) + '" style="padding:2px 4px;font-size:0.85rem;" />' +
-        '<select class="contact-response" style="padding:2px 4px;font-size:0.85rem;">' +
+        '</select></div>' +
+        '<div class="contact-field"><label>Date reached out</label><input type="date" class="contact-date" value="' + escapeHtml(date) + '" /></div>' +
+        '<div class="contact-field"><label>Response</label><select class="contact-response">' +
         '<option value="Pending"' + (resp === "Pending" ? " selected" : "") + '>Pending</option>' +
         '<option value="Yes"' + (resp === "Yes" ? " selected" : "") + '>Yes</option>' +
         '<option value="No"' + (resp === "No" ? " selected" : "") + '>No</option>' +
         '<option value="Follow up"' + (resp === "Follow up" ? " selected" : "") + '>Follow up</option>' +
-        '</select>' +
-        '<select class="contact-moving" style="padding:2px 4px;font-size:0.85rem;">' +
+        '</select></div>' +
+        '<div class="contact-field"><label>Moving forward</label><select class="contact-moving">' +
         '<option value="TBD"' + (mf === "TBD" ? " selected" : "") + '>TBD</option>' +
         '<option value="Yes"' + (mf === "Yes" ? " selected" : "") + '>Yes</option>' +
         '<option value="No"' + (mf === "No" ? " selected" : "") + '>No</option>' +
         '<option value="On hold"' + (mf === "On hold" ? " selected" : "") + '>On hold</option>' +
-        '</select>' +
-        '<input type="text" class="contact-next" placeholder="Next steps" value="' + escapeHtml(next) + '" style="padding:2px 4px;font-size:0.85rem;" />' +
-        '<button class="small-btn" type="button">Remove</button>';
-      row.querySelector("button").addEventListener("click", function () { row.remove(); });
+        '</select></div>' +
+        '<div class="contact-field full-width"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
+        '<button class="small-btn contact-remove" type="button">Remove</button>';
+      row.querySelector(".contact-remove").addEventListener("click", function () { row.remove(); });
       contactsListEl.appendChild(row);
     }
 
