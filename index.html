@@ -294,8 +294,8 @@
     .contacts-container > label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .contact-row {
       display: grid;
-      grid-template-columns: 1.2fr 1fr 1.2fr 1fr 1fr 1fr 1fr 1fr auto;
-      gap: 10px;
+      grid-template-columns: 1.5fr 1fr 1.5fr 80px 100px 100px 100px 100px 1fr auto;
+      gap: 8px;
       align-items: start;
       padding: 10px;
       background: var(--panel);
@@ -304,10 +304,10 @@
       margin-bottom: 8px;
     }
     .contact-row > .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .contact-row > .contact-field.full-width { grid-column: 1 / -2; }
-    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 18px; }
-    .contact-field label { font-size: 0.75rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
-    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+    .contact-row > .contact-field.full-width { grid-column: 1 / -1; }
+    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 22px; }
+    .contact-field label { font-size: 0.7rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
     .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
     .modal-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
     .modal-section h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
@@ -1308,7 +1308,7 @@
         '<option value="No"' + (mf === "No" ? " selected" : "") + '>No</option>' +
         '<option value="On hold"' + (mf === "On hold" ? " selected" : "") + '>On hold</option>' +
         '</select></div>' +
-        '<div class="contact-field full-width"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
+        '<div class="contact-field"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
         '<button class="small-btn contact-remove" type="button">Remove</button>';
       row.querySelector(".contact-remove").addEventListener("click", function () { row.remove(); });
       contactsListEl.appendChild(row);
