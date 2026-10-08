@@ -4,7 +4,13 @@
       "id": "muysm8sbcsf8rj",
       "name": "Palazzo Ricci",
       "institutions": [],
-      "tasks": []
+      "tasks": [
+        {
+          "id": "muyspvxlxyr7x1",
+          "title": "Send Decks to Alessio",
+          "status": "Pending"
+        }
+      ]
     }
   ],
   "activeProjectId": "muysm8sbcsf8rj"
