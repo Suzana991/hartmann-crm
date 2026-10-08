@@ -290,25 +290,24 @@
     .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
     .checkbox-wrap { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text); }
     .checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--accent); }
-    .contacts-container { display: flex; flex-direction: column; gap: 8px; grid-column: 1 / -1; margin-top: 8px; }
+    .contacts-container { display: flex; flex-direction: column; gap: 10px; grid-column: 1 / -1; margin-top: 8px; }
     .contacts-container > label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .contact-row {
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1.5fr 80px 100px 100px 100px 100px 1fr auto;
-      gap: 8px;
-      align-items: start;
-      padding: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      padding: 12px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 8px;
-      margin-bottom: 8px;
     }
-    .contact-row > .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .contact-row > .contact-field.full-width { grid-column: 1 / -1; }
-    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 22px; }
-    .contact-field label { font-size: 0.7rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
-    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+    .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .contact-field.wide { grid-column: span 2; }
+    .contact-field.full { grid-column: 1 / -1; }
+    .contact-field label { font-size: 0.7rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
+    .contact-field input, .contact-field select { padding: 8px 10px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
     .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
+    .contact-remove { grid-row: 1; align-self: end; height: 38px; margin-top: auto; }
     .modal-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
     .modal-section h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
     .help-text { font-size: 0.8rem; color: var(--subtext); margin-top: 4px; }
@@ -327,23 +326,6 @@
     .tag-warning { border-color: rgba(244,185,66,0.9); color: var(--warning); }
     .tag-danger { border-color: rgba(242,92,84,0.9); color: var(--danger); }
     .tag-info { border-color: rgba(108,156,255,0.9); color: var(--accent); }
-    .empty-state { padding: 32px 16px; text-align: center; color: var(--subtext); }
-    .row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      color: var(--subtext);
-      font-size: 0.92rem;
-      white-space: nowrap;
-      margin: 1px 2px 1px 0;
-    }
-    .tag-success { border-color: rgba(63, 185, 132, 0.9); color: var(--success); }
-    .tag-warning { border-color: rgba(244, 185, 66, 0.9); color: var(--warning); }
-    .tag-danger { border-color: rgba(242, 92, 84, 0.9); color: var(--danger); }
-    .tag-info { border-color: rgba(108, 156, 255, 0.9); color: var(--accent); }
     .empty-state { padding: 32px 16px; text-align: center; color: var(--subtext); }
     .row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
     .save-status {
@@ -1287,11 +1269,11 @@
       const mf = contact.movingForward || "TBD";
       const next = contact.nextSteps || "";
       row.innerHTML =
-        '<div class="contact-field"><label>Full name</label><input class="contact-name" placeholder="e.g. John Smith" value="' + escapeHtml(n) + '" /></div>' +
+        '<div class="contact-field wide"><label>Full name</label><input class="contact-name" placeholder="e.g. John Smith" value="' + escapeHtml(n) + '" /></div>' +
         '<div class="contact-field"><label>Title</label><input class="contact-title" placeholder="e.g. CEO, Partner" value="' + escapeHtml(t) + '" /></div>' +
-        '<div class="contact-field"><label>Email</label><input class="contact-email" type="email" placeholder="john@firm.com" value="' + escapeHtml(e) + '" /></div>' +
+        '<div class="contact-field wide"><label>Email</label><input class="contact-email" type="email" placeholder="john@firm.com" value="' + escapeHtml(e) + '" /></div>' +
         '<div class="contact-field"><label>Reached out</label><label class="checkbox-wrap"><input type="checkbox" class="contact-reached" ' + (reached ? "checked" : "") + ' /><span>Yes</span></label></div>' +
-        '<div class="contact-field"><label>Who reached out</label><select class="contact-who">' +
+        '<div class="contact-field wide"><label>Who reached out</label><select class="contact-who">' +
         '<option value="">—</option>' +
         REPS.map(function (r) { return '<option value="' + r + '"' + (who === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
         '</select></div>' +
@@ -1308,7 +1290,7 @@
         '<option value="No"' + (mf === "No" ? " selected" : "") + '>No</option>' +
         '<option value="On hold"' + (mf === "On hold" ? " selected" : "") + '>On hold</option>' +
         '</select></div>' +
-        '<div class="contact-field"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
+        '<div class="contact-field full"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
         '<button class="small-btn contact-remove" type="button">Remove</button>';
       row.querySelector(".contact-remove").addEventListener("click", function () { row.remove(); });
       contactsListEl.appendChild(row);
