@@ -1111,20 +1111,17 @@
       for (const inst of filtered) {
         const instReached = (inst.contacts || []).filter(function (c) { return c.reachedOut; }).length;
         const instTotal = (inst.contacts || []).length;
-        // Use first contact for institution-level outreach display (or summary)
-        const firstContact = (inst.contacts && inst.contacts.length) ? inst.contacts[0] : null;
         const anyReached = instReached > 0;
         const reachedPill = anyReached
           ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
           : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
-        const contactsHtml = (inst.contacts && inst.contacts.length)
-          ? inst.contacts.map(function (c) {
-              return '<span class="contact-line">' +
-                '<span class="cl-name">' + escapeHtml(c.name || "?") + "</span>" +
-                (c.title ? ' <span class="cl-title">' + escapeHtml(c.title) + "</span>" : "") +
-                (c.email ? ' <span class="cl-email">' + escapeHtml(c.email) + "</span>" : "") +
-                "</span>";
-            }).join("")
+        const firstContact = (inst.contacts && inst.contacts.length) ? inst.contacts[0] : null;
+        const contactsHtml = firstContact
+          ? '<span class="contact-line">' +
+            '<span class="cl-name">' + escapeHtml(firstContact.name || "?") + "</span>" +
+            (firstContact.title ? ' <span class="cl-title">' + escapeHtml(firstContact.title) + "</span>" : "") +
+            (firstContact.email ? ' <span class="cl-email">' + escapeHtml(firstContact.email) + "</span>" : "") +
+            "</span>"
           : '<span class="contact-line">' + escapeHtml(inst.contactInfo || "—") + "</span>";
         const contactCountHtml = instTotal > 0 ? '<span class="contact-count">(' + instTotal + ')</span>' : '';
         const whoHtml = firstContact ? (firstContact.whoReachedOut || "—") : "—";
@@ -1715,8 +1712,8 @@
             const isNew = inst._justCreated;
             if (isNew) created++;
             inst._justCreated = false;
-            if (typeCol >= 0 && !inst.companyType) inst.companyType = get(typeCol);
-            if (importanceCol >= 0 && !inst.importance) inst.importance = get(importanceCol);
+            if (typeCol >= 0) inst.companyType = get(typeCol);
+            if (importanceCol >= 0) inst.importance = get(importanceCol);
 
             // New format: per-contact outreach columns present
             const hasNewContactCols = cNameCol >= 0 || cEmailCol >= 0;
