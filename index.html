@@ -228,7 +228,7 @@
       width: 100%;
       table-layout: fixed;
       border-collapse: collapse;
-      min-width: 850px;
+      min-width: 1250px;
       font-size: 0.95rem;
     }
     thead th {
@@ -249,23 +249,55 @@
       word-break: break-word;
       overflow-wrap: anywhere;
     }
-    tbody tr.institution-row:hover { background: var(--row-hover); }
-    tbody tr.contact-detail-row { background: var(--panel); }
-    tbody tr.contact-detail-row td { padding: 6px 12px 6px 36px; font-size: 0.9rem; border-top: 1px solid var(--border); }
-    .reached-summary { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
-    .reached-summary.all { background: rgba(63,185,132,0.15); color: var(--success); border: 1px solid rgba(63,185,132,0.5); }
-    .reached-summary.partial { background: rgba(244,185,66,0.15); color: var(--warning); border: 1px solid rgba(244,185,66,0.5); }
-    .reached-summary.none { background: transparent; color: var(--subtext); border: 1px solid var(--border); }
-    .expand-btn { cursor: pointer; user-select: none; display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 4px; margin-right: 6px; color: var(--subtext); transition: background 0.15s; }
-    .expand-btn:hover { background: var(--row-hover); color: var(--text); }
-    .contact-detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 8px; margin-top: 6px; }
-    .contact-detail-grid > div { display: flex; flex-direction: column; gap: 2px; }
-    .contact-detail-grid label { font-size: 0.75rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
-    .contact-detail-grid select, .contact-detail-grid input { padding: 4px 6px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: var(--input-bg); color: var(--text); }
-    .contact-detail-grid select:focus, .contact-detail-grid input:focus { outline: none; border-color: var(--accent); }
-    .contact-name-cell { font-weight: 600; }
-    .contact-title-cell { color: var(--subtext); font-style: italic; font-size: 0.85rem; }
-    .contact-email-cell { color: var(--accent); font-size: 0.85rem; overflow-wrap: anywhere; }
+    tbody tr:hover { background: var(--row-hover); }
+    .reached-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .reached-pill.is-reached {
+      background: rgba(63,185,132,0.15);
+      border-color: rgba(63,185,132,0.8);
+      color: var(--success);
+    }
+    .reached-pill:not(.is-reached) { color: var(--subtext); }
+    .reached-pill:not(.is-reached):hover { color: var(--text); border-color: var(--accent); }
+    .contact-count { font-size: 0.8rem; color: var(--subtext); margin-left: 6px; }
+    .who-select {
+      width: 100%;
+      max-width: 110px;
+      padding: 3px 4px;
+      font-size: 0.92rem;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--input-bg);
+    }
+    .who-select:hover, .who-select:focus { border-color: var(--accent); outline: none; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--subtext);
+      font-size: 0.92rem;
+      white-space: nowrap;
+      margin: 1px 2px 1px 0;
+    }
+    .tag-success { border-color: rgba(63,185,132,0.9); color: var(--success); }
+    .tag-warning { border-color: rgba(244,185,66,0.9); color: var(--warning); }
+    .tag-danger { border-color: rgba(242,92,84,0.9); color: var(--danger); }
+    .tag-info { border-color: rgba(108,156,255,0.9); color: var(--accent); }
+    .empty-state { padding: 32px 16px; text-align: center; color: var(--subtext); }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
     .tag {
       display: inline-flex;
       align-items: center;
@@ -524,7 +556,12 @@
               <col style="width: 90px" />
               <col style="width: 1fr" />
               <col style="width: 80px" />
+              <col style="width: 110px" />
+              <col style="width: 110px" />
               <col style="width: 80px" />
+              <col style="width: 80px" />
+              <col style="width: 170px" />
+              <col style="width: 100px" />
             </colgroup>
             <thead>
               <tr>
@@ -533,6 +570,11 @@
                 <th>Type</th>
                 <th>Contacts</th>
                 <th>Importance</th>
+                <th>Who reached out</th>
+                <th>Date reached out</th>
+                <th>Response</th>
+                <th>Moving forward</th>
+                <th>Next steps</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -682,7 +724,6 @@
     let searchTerm = "";
     let outreachFilter = "all";
     let lastSavedHash = null;
-    let expandedInstitutions = new Set();
 
     const REPS = ["Suzana", "Bruno", "Both", "Other"];
 
@@ -1055,88 +1096,46 @@
       for (const inst of filtered) {
         const instReached = (inst.contacts || []).filter(function (c) { return c.reachedOut; }).length;
         const instTotal = (inst.contacts || []).length;
-        let summaryClass = "none", summaryText = "0/0";
-        if (instTotal === 0) {
-          summaryClass = "none"; summaryText = "No contacts";
-        } else if (instReached === instTotal) {
-          summaryClass = "all"; summaryText = instReached + "/" + instTotal;
-        } else if (instReached > 0) {
-          summaryClass = "partial"; summaryText = instReached + "/" + instTotal;
-        } else {
-          summaryClass = "none"; summaryText = "0/" + instTotal;
-        }
-        const isExpanded = expandedInstitutions.has(inst.id);
-        const expandIcon = isExpanded ? "&#9660;" : "&#9654;";
-
-        // Institution row
-        const tr = document.createElement("tr");
-        tr.className = "institution-row";
-        tr.dataset.instId = inst.id;
-        const contactsPreview = (inst.contacts && inst.contacts.length)
-          ? inst.contacts.slice(0, 2).map(function (c) {
+        // Use first contact for institution-level outreach display (or summary)
+        const firstContact = (inst.contacts && inst.contacts.length) ? inst.contacts[0] : null;
+        const anyReached = instReached > 0;
+        const reachedPill = anyReached
+          ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
+          : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
+        const contactsHtml = (inst.contacts && inst.contacts.length)
+          ? inst.contacts.map(function (c) {
               return '<span class="contact-line">' +
                 '<span class="cl-name">' + escapeHtml(c.name || "?") + "</span>" +
                 (c.title ? ' <span class="cl-title">' + escapeHtml(c.title) + "</span>" : "") +
                 (c.email ? ' <span class="cl-email">' + escapeHtml(c.email) + "</span>" : "") +
                 "</span>";
-            }).join("") + (inst.contacts.length > 2 ? ' <span class="contact-line" style="color:var(--subtext)">+' + (inst.contacts.length - 2) + ' more</span>' : "")
-          : '<span class="contact-line" style="color:var(--subtext)">No contacts</span>';
+            }).join("")
+          : '<span class="contact-line">' + escapeHtml(inst.contactInfo || "—") + "</span>";
+        const contactCountHtml = instTotal > 0 ? '<span class="contact-count">(' + instTotal + ')</span>' : '';
+        const whoHtml = firstContact ? (firstContact.whoReachedOut || "—") : "—";
+        const dateHtml = firstContact ? (firstContact.dateReachedOut || "—") : "—";
+        const respHtml = firstContact ? renderResponse(firstContact.response) : renderResponse("");
+        const mfHtml = firstContact ? renderMovingForward(firstContact.movingForward) : renderMovingForward("");
+        const nextHtml = firstContact ? escapeHtml(firstContact.nextSteps || "—").replace(/\n/g, "<br>") : "—";
+
+        const tr = document.createElement("tr");
+        tr.className = anyReached ? "reached-out" : "not-reached";
         tr.innerHTML =
-          '<td><span class="reached-summary ' + summaryClass + '" title="Click to expand">' + summaryText + '</span></td>' +
-          "<td>" + escapeHtml(inst.companyName || "—") + "</td>" +
+          "<td>" + reachedPill + "</td>" +
+          "<td>" + escapeHtml(inst.companyName || "—") + contactCountHtml + "</td>" +
           '<td><span class="tag">' + escapeHtml(inst.companyType || "—") + "</span></td>" +
-          '<td><span class="expand-btn" data-action="toggle-expand" data-id="' + escapeHtml(inst.id) + '" title="Expand contacts">' + expandIcon + "</span>" + contactsPreview + "</td>" +
+          "<td>" + contactsHtml + "</td>" +
           "<td>" + renderImportance(inst.importance) + "</td>" +
+          '<td><span class="tag">' + escapeHtml(whoHtml) + "</span></td>" +
+          "<td>" + dateHtml + "</td>" +
+          "<td>" + respHtml + "</td>" +
+          "<td>" + mfHtml + "</td>" +
+          "<td>" + nextHtml + "</td>" +
           '<td><div class="row-actions">' +
           '<button class="ghost-btn" data-action="edit" data-id="' + escapeHtml(inst.id) + '">Edit</button>' +
           '<button class="ghost-btn" data-action="delete" data-id="' + escapeHtml(inst.id) + '">Delete</button>' +
           "</div></td>";
         institutionsTbody.appendChild(tr);
-
-        // Contact detail rows (initially hidden)
-        if (isExpanded && inst.contacts && inst.contacts.length) {
-          inst.contacts.forEach(function (contact, ci) {
-            const detailTr = document.createElement("tr");
-            detailTr.className = "contact-detail-row";
-            detailTr.dataset.instId = inst.id;
-            detailTr.dataset.contactIdx = ci;
-            var cReached = contact.reachedOut ? "reached-out" : "not-reached";
-            var reachedBtn = contact.reachedOut
-              ? '<button class="reached-pill is-reached" data-action="toggle-contact-reached" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" title="Mark as not reached">&check;</button>'
-              : '<button class="reached-pill" data-action="toggle-contact-reached" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" title="Mark as reached"></button>';
-            var whoSel = '<select class="who-select" data-action="contact-who" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
-              '<option value=""' + (!contact.whoReachedOut ? " selected" : "") + '>—</option>' +
-              REPS.map(function (r) { return '<option value="' + r + '"' + (contact.whoReachedOut === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
-              '</select>';
-            var dateVal = contact.dateReachedOut || "";
-            var respSel = '<select class="who-select" data-action="contact-response" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
-              '<option value="Pending"' + (contact.response === "Pending" || !contact.response ? " selected" : "") + '>Pending</option>' +
-              '<option value="Yes"' + (contact.response === "Yes" ? " selected" : "") + '>Yes</option>' +
-              '<option value="No"' + (contact.response === "No" ? " selected" : "") + '>No</option>' +
-              '<option value="Follow up"' + (contact.response === "Follow up" ? " selected" : "") + '>Follow up</option>' +
-              '</select>';
-            var mfSel = '<select class="who-select" data-action="contact-moving" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;">' +
-              '<option value="TBD"' + (contact.movingForward === "TBD" || !contact.movingForward ? " selected" : "") + '>TBD</option>' +
-              '<option value="Yes"' + (contact.movingForward === "Yes" ? " selected" : "") + '>Yes</option>' +
-              '<option value="No"' + (contact.movingForward === "No" ? " selected" : "") + '>No</option>' +
-              '<option value="On hold"' + (contact.movingForward === "On hold" ? " selected" : "") + '>On hold</option>' +
-              '</select>';
-            var nextVal = escapeHtml(contact.nextSteps || "");
-            detailTr.innerHTML =
-              '<td colspan="6">' +
-              '<div class="contact-detail-grid">' +
-              '<div><label>Contact</label><div class="contact-name-cell">' + escapeHtml(contact.name || "—") + '</div><div class="contact-title-cell">' + escapeHtml(contact.title || "") + '</div><div class="contact-email-cell">' + escapeHtml(contact.email || "") + '</div></div>' +
-              '<div><label>Reached</label>' + reachedBtn + '</div>' +
-              '<div><label>Who</label>' + whoSel + '</div>' +
-              '<div><label>Date</label><input type="date" class="who-select" data-action="contact-date" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" value="' + dateVal + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;"></div>' +
-              '<div><label>Response</label>' + respSel + '</div>' +
-              '<div><label>Moving</label>' + mfSel + '</div>' +
-              '<div style="grid-column:span 5"><label>Next steps</label><input type="text" class="who-select" data-action="contact-next" data-inst-id="' + escapeHtml(inst.id) + '" data-contact-idx="' + ci + '" value="' + nextVal + '" style="width:100%;max-width:none;padding:4px 6px;font-size:0.85rem;"></div>' +
-              '</div>' +
-              '</td>';
-            institutionsTbody.appendChild(detailTr);
-          });
-        }
       }
     }
 
@@ -1364,19 +1363,11 @@
     });
 
     institutionsTbody.addEventListener("click", function (e) {
-      const expandBtn = e.target.closest(".expand-btn[data-action='toggle-expand']");
-      if (expandBtn) {
-        const id = expandBtn.dataset.id;
-        if (expandedInstitutions.has(id)) expandedInstitutions.delete(id);
-        else expandedInstitutions.add(id);
-        renderAll();
-        return;
-      }
       const btn = e.target.closest("button[data-action]");
       if (!btn) return;
       const project = getActiveProject();
       if (!project) return;
-      const instId = btn.dataset.instId || btn.dataset.id;
+      const instId = btn.dataset.id;
       const inst = (project.institutions || []).find(function (i) { return i.id === instId; });
       if (!inst) return;
       if (btn.dataset.action === "edit") openModal("edit", inst);
@@ -1386,50 +1377,22 @@
         persistState();
         renderAll();
       }
-      if (btn.dataset.action === "toggle-contact-reached") {
-        const ci = parseInt(btn.dataset.contactIdx, 10);
-        const contact = inst.contacts && inst.contacts[ci];
-        if (!contact) return;
-        contact.reachedOut = !contact.reachedOut;
-        if (contact.reachedOut && !contact.dateReachedOut) {
-          contact.dateReachedOut = new Date().toISOString().slice(0, 10);
-        }
-        if (contact.reachedOut && !contact.whoReachedOut) {
-          const last = localStorage.getItem("crm-last-who");
-          if (last && REPS.indexOf(last) !== -1) contact.whoReachedOut = last;
-        }
+      if (btn.dataset.action === "toggle-reached") {
+        const anyReached = (inst.contacts || []).some(function (c) { return c.reachedOut; });
+        const newVal = !anyReached;
+        (inst.contacts || []).forEach(function (c) {
+          c.reachedOut = newVal;
+          if (newVal && !c.dateReachedOut) {
+            c.dateReachedOut = new Date().toISOString().slice(0, 10);
+          }
+          if (newVal && !c.whoReachedOut) {
+            const last = localStorage.getItem("crm-last-who");
+            if (last && REPS.indexOf(last) !== -1) c.whoReachedOut = last;
+          }
+        });
         persistState();
         renderAll();
       }
-    });
-
-    institutionsTbody.addEventListener("change", function (e) {
-      const target = e.target;
-      const project = getActiveProject();
-      if (!project) return;
-      const instId = target.dataset.instId;
-      const ci = parseInt(target.dataset.contactIdx, 10);
-      if (!instId || isNaN(ci)) return;
-      const inst = (project.institutions || []).find(function (i) { return i.id === instId; });
-      if (!inst || !inst.contacts || !inst.contacts[ci]) return;
-      const contact = inst.contacts[ci];
-      const action = target.dataset.action;
-      if (action === "contact-who") {
-        contact.whoReachedOut = target.value || "";
-        if (contact.whoReachedOut) localStorage.setItem("crm-last-who", contact.whoReachedOut);
-      } else if (action === "contact-response") {
-        contact.response = target.value || "";
-      } else if (action === "contact-moving") {
-        contact.movingForward = target.value || "";
-      } else if (action === "contact-date") {
-        contact.dateReachedOut = target.value || "";
-      } else if (action === "contact-next") {
-        contact.nextSteps = target.value || "";
-      } else {
-        return;
-      }
-      persistState();
-      renderAll();
     });
 
     /* ---------- Tasks ---------- */
