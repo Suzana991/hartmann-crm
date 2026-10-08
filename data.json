@@ -3,7 +3,27 @@
     {
       "id": "muysm8sbcsf8rj",
       "name": "Palazzo Ricci",
-      "institutions": [],
+      "institutions": [
+        {
+          "id": "muyt073t551gyl",
+          "companyName": "Banca Ifis",
+          "companyType": "Bank",
+          "contacts": [
+            {
+              "name": "Alessio Togni",
+              "title": "",
+              "email": "Alessio.Togni@bancaifis.it",
+              "reachedOut": true,
+              "whoReachedOut": "Both",
+              "dateReachedOut": "2026-10-07",
+              "response": "Yes",
+              "movingForward": "Yes",
+              "nextSteps": "Send IM For Palazzo and Villa Faraggiana"
+            }
+          ],
+          "importance": "High"
+        }
+      ],
       "tasks": [
         {
           "id": "muyspvxlxyr7x1",
