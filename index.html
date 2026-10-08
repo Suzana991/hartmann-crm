@@ -1,1872 +1,341 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hartmann - Outreach Tracker CRM</title>
-  <style>
-    :root {
-      --bg: #0f1026;
-      --panel: #1f2237;
-      --text: #f4f4f9;
-      --subtext: #bfc0d0;
-      --accent: #6c9cff;
-      --success: #3fb984;
-      --warning: #f4b942;
-      --danger: #f25c54;
-      --border: #3b3f63;
-      --input-bg: rgba(15, 16, 38, 0.6);
-      --row-hover: rgba(108, 156, 255, 0.08);
-      --shadow: 0 20px 40px -30px rgba(108, 156, 255, 0.7);
-    }
-    :root.light {
-      --bg: #f7f8fa;
-      --panel: #ffffff;
-      --text: #1f2237;
-      --subtext: #4f536e;
-      --accent: #3b6bff;
-      --success: #1f9d55;
-      --warning: #b7791f;
-      --danger: #d64545;
-      --border: #dce0ea;
-      --input-bg: #ffffff;
-      --row-hover: rgba(59, 107, 255, 0.06);
-      --shadow: 0 16px 32px -24px rgba(31, 34, 55, 0.25);
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--text);
-      font-size: 14px;
-    }
-    body {
-      background: radial-gradient(circle at top, rgba(108, 156, 255, 0.12), var(--bg));
-      line-height: 1.5;
-      padding: 16px;
-      transition: background 160ms ease, color 160ms ease;
-    }
-    :root.light body {
-      background: radial-gradient(circle at top, rgba(59, 107, 255, 0.08), var(--bg));
-    }
-    header { margin-bottom: 16px; }
-    .header-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    header h1 { font-size: 1.4rem; margin-bottom: 2px; }
-    header p { color: var(--subtext); font-size: 0.95rem; }
-    .layout {
-      display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-    @media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } }
-    .left-column { display: flex; flex-direction: column; gap: 16px; }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      transition: border 160ms ease, background 160ms ease, box-shadow 160ms ease;
-    }
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      gap: 8px;
-    }
-    .panel-header h2 { font-size: 0.98rem; font-weight: 600; }
-    .projects-list { display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; }
-    .tasks-list {
-      display: flex;
-      flex-direction: column;
-      max-height: calc(100vh - 480px);
-      min-height: 60px;
-      overflow-y: auto;
-      padding: 6px 8px 8px;
-      gap: 6px;
-    }
-    @media (max-width: 1080px) { .tasks-list { max-height: 240px; } }
-    .project-tab {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 8px 14px;
-      border: none;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-      width: 100%;
-    }
-    .project-tab.active { background: rgba(108, 156, 255, 0.25); }
-    :root.light .project-tab.active { background: rgba(59, 107, 255, 0.12); }
-    .project-tab:not(.active):hover { background: rgba(108, 156, 255, 0.12); }
-    :root.light .project-tab:not(.active):hover { background: rgba(59, 107, 255, 0.08); }
-    .project-tab-name { font-weight: 600; }
-    .project-tab-meta { color: var(--subtext); font-size: 0.9rem; }
-    .ghost-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--subtext);
-      font-size: 0.95rem;
-      padding: 6px 8px;
-      border-radius: 999px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .ghost-btn:hover { color: var(--text); }
-    .ghost-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .primary-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(108, 156, 255, 0.9);
-      background: radial-gradient(circle at top, rgba(154, 183, 255, 0.9), rgba(108, 156, 255, 0.9));
-      color: var(--text);
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 6px 12px;
-      border-radius: 999px;
-      cursor: pointer;
-      box-shadow: 0 10px 20px -16px rgba(108, 156, 255, 1);
-      white-space: nowrap;
-    }
-    :root.light .primary-btn {
-      color: #ffffff;
-      border-color: rgba(59, 107, 255, 0.9);
-      background: radial-gradient(circle at top, rgba(92, 133, 255, 0.95), rgba(59, 107, 255, 0.95));
-    }
-    .primary-btn.ghost {
-      background: transparent;
-      border-color: var(--border);
-      box-shadow: none;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .primary-btn:disabled, .primary-btn:disabled:hover { opacity: 0.4; cursor: not-allowed; }
-    .content { display: flex; flex-direction: column; gap: 16px; }
-    .content-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .content-title-group h2 { font-size: 1.15rem; }
-    .content-title-group p { color: var(--subtext); }
-    .actions-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .search-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--input-bg);
-      padding: 6px 10px;
-    }
-    .search-wrap input {
-      border: none;
-      background: transparent;
-      padding: 4px 6px;
-      min-width: 160px;
-      outline: none;
-      color: var(--text);
-    }
-    .filter-select {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--input-bg);
-      padding: 6px 10px;
-      font-size: 0.95rem;
-      color: var(--text);
-      cursor: pointer;
-    }
-    tr.reached-out { background: rgba(63, 185, 132, 0.06); }
-    tr.reached-out td:first-child { border-left: 3px solid var(--success); }
-    tr.not-reached:hover { background: var(--row-hover); }
-    .reached-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 0.92rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .reached-pill.is-reached {
-      background: rgba(63, 185, 132, 0.15);
-      border-color: rgba(63, 185, 132, 0.8);
-      color: var(--success);
-    }
-    .reached-pill:not(.is-reached) { color: var(--subtext); }
-    .reached-pill:not(.is-reached):hover { color: var(--text); border-color: var(--accent); }
-    .table-wrapper {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-    .table-scroll { overflow-x: auto; }
-    table {
-      width: 100%;
-      table-layout: fixed;
-      border-collapse: collapse;
-      min-width: 1250px;
-      font-size: 0.95rem;
-    }
-    thead th {
-      text-align: left;
-      padding: 8px 12px;
-      color: var(--subtext);
-      font-weight: 600;
-      font-size: 0.9rem;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    tbody td {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    tbody tr:hover { background: var(--row-hover); }
-    .reached-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 0.92rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .reached-pill.is-reached {
-      background: rgba(63,185,132,0.15);
-      border-color: rgba(63,185,132,0.8);
-      color: var(--success);
-    }
-    .reached-pill:not(.is-reached) { color: var(--subtext); }
-    .reached-pill:not(.is-reached):hover { color: var(--text); border-color: var(--accent); }
-    .contact-count { font-size: 0.8rem; color: var(--subtext); margin-left: 6px; }
-    .who-select {
-      width: 100%;
-      max-width: 110px;
-      padding: 3px 4px;
-      font-size: 0.92rem;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--input-bg);
-    }
-    .who-select:hover, .who-select:focus { border-color: var(--accent); outline: none; }
-    .contact-row { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 10px 8px; align-items: start; padding: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
-    .contact-row > .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .contact-row > .contact-field.full-width { grid-column: 1 / -2; }
-    .contact-row > .contact-remove { grid-row: 1; align-self: start; height: fit-content; margin-top: 18px; }
-    .contact-field label { font-size: 0.75rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
-    .contact-field input, .contact-field select { padding: 6px 8px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
-    .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
-    .checkbox-wrap { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text); }
-    .checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--accent); }
-    .contacts-container { display: flex; flex-direction: column; gap: 10px; grid-column: 1 / -1; margin-top: 8px; }
-    .contacts-container > label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text); }
-    .contact-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 10px;
-      padding: 12px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-    .contact-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .contact-field.wide { grid-column: span 2; }
-    .contact-field.full { grid-column: 1 / -1; }
-    .contact-field label { font-size: 0.7rem; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; }
-    .contact-field input, .contact-field select { padding: 8px 10px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
-    .contact-field input:focus, .contact-field select:focus { outline: none; border-color: var(--accent); }
-    .contact-remove { grid-row: 1; align-self: end; height: 38px; margin-top: auto; }
-    .modal-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-    .modal-section h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
-    .help-text { font-size: 0.8rem; color: var(--subtext); margin-top: 4px; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      color: var(--subtext);
-      font-size: 0.92rem;
-      white-space: nowrap;
-      margin: 1px 2px 1px 0;
-    }
-    .tag-success { border-color: rgba(63,185,132,0.9); color: var(--success); }
-    .tag-warning { border-color: rgba(244,185,66,0.9); color: var(--warning); }
-    .tag-danger { border-color: rgba(242,92,84,0.9); color: var(--danger); }
-    .tag-info { border-color: rgba(108,156,255,0.9); color: var(--accent); }
-    .empty-state { padding: 32px 16px; text-align: center; color: var(--subtext); }
-    .row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
-    .save-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--border);
-      background: var(--input-bg);
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.92rem;
-      color: var(--subtext);
-      white-space: nowrap;
-    }
-    .save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--subtext); }
-    .save-status.saving .dot { background: var(--warning); animation: pulse 1s infinite; }
-    .save-status.saved .dot { background: var(--success); }
-    .save-status.error .dot { background: var(--danger); }
-    @keyframes pulse { 50% { opacity: 0.3; } }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at top, rgba(39, 43, 82, 0.92), rgba(15, 16, 38, 0.96));
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      z-index: 10;
-    }
-    :root.light .modal-backdrop {
-      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.98), rgba(241, 243, 247, 0.98));
-    }
-    .modal-backdrop.active { display: flex; }
-    .modal {
-      width: min(1000px, 100%);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 18px;
-      border-bottom: 1px solid var(--border);
-    }
-    .modal-body {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px 16px;
-      padding: 16px 18px;
-      overflow-y: auto;
-    }
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    .field.full { grid-column: 1 / -1; }
-    label { color: var(--subtext); font-size: 0.95rem; }
-    input, select, textarea {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--input-bg);
-      padding: 8px 10px;
-      font-size: 0.98rem;
-      color: var(--text);
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: 2px solid rgba(108, 156, 255, 0.5);
-      outline-offset: 1px;
-    }
-    textarea { min-height: 70px; resize: vertical; }
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 10px 18px;
-      border-top: 1px solid var(--border);
-    }
-    .theme-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--subtext);
-      font-size: 0.95rem;
-      padding: 6px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-    }
-    .theme-toggle:hover { color: var(--text); }
-    .small-btn {
-      padding: 6px 8px;
-      font-size: 0.92rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--subtext);
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .small-btn:hover { color: var(--text); border-color: var(--danger); }
-    .task-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.02);
-    }
-    :root.light .task-item { background: rgba(31, 34, 55, 0.02); }
-    .task-header {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .task-title { font-weight: 600; line-height: 1.4; }
-    .task-meta {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-    }
-    .task-actions { display: flex; flex-wrap: wrap; gap: 4px; }
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 0.92rem;
-      border: 1px solid var(--border);
-      cursor: pointer;
-      background: transparent;
-    }
-    .status-pending {
-      background: rgba(244, 185, 66, 0.15);
-      border-color: rgba(244, 185, 66, 0.8);
-      color: var(--warning);
-    }
-    .status-ongoing {
-      background: rgba(108, 156, 255, 0.15);
-      border-color: rgba(108, 156, 255, 0.8);
-      color: var(--accent);
-    }
-    .status-completed {
-      background: rgba(63, 185, 132, 0.15);
-      border-color: rgba(63, 185, 132, 0.8);
-      color: var(--success);
-    }
-    .hidden { display: none; }
-    .loading-row { text-align: center; padding: 40px 16px; color: var(--subtext); }
-  </style>
-<!-- v2026.10.title -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Hartmann Outreach Tracker</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+:root{
+  --bg:#0e1116;--bg2:#151a21;--panel:#1a202a;--panel2:#212a37;--border:#2b3544;
+  --text:#e7ecf3;--muted:#8d99ab;--accent:#4f8cff;--accent2:#3d74e0;
+  --danger:#ff6b6b;--warn:#f5b942;--ok:#3ddc97;--info:#7cc4ff;
+  --chip-bg:rgba(255,255,255,.06);--shadow:0 14px 40px rgba(0,0,0,.45)
+}
+html.light{
+  --bg:#f3f5f9;--bg2:#ffffff;--panel:#ffffff;--panel2:#eef1f7;--border:#dce2ec;
+  --text:#19212e;--muted:#5f6b7d;--chip-bg:rgba(0,0,0,.05);--shadow:0 14px 40px rgba(25,40,70,.14)
+}
+body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+button{font:inherit;color:inherit;cursor:pointer}
+h1,h2,h3{font-weight:700}
+.hidden{display:none !important}
+.app{display:flex;min-height:100vh;align-items:stretch}
+
+.sidebar{width:252px;flex:0 0 252px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px;padding:14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{display:flex;gap:10px;align-items:center}
+.brand-mark{width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#7b5cff);display:grid;place-items:center;font-weight:800;color:#fff}
+.brand-name{font-weight:700;font-size:14.5px;line-height:1.1}
+.brand-sub{font-size:11px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav-btn{display:flex;align-items:center;gap:8px;background:transparent;border:none;text-align:left;padding:8px 10px;border-radius:8px;color:var(--muted);font-weight:600;font-size:13.5px}
+.nav-btn:hover{background:var(--panel);color:var(--text)}
+.nav-btn.active{background:rgba(79,140,255,.15);color:var(--accent)}
+.side-section-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.mini-add{background:transparent;border:1px solid var(--border);border-radius:6px;width:22px;height:22px;line-height:1;font-size:13px;color:var(--muted);display:grid;place-items:center}
+.mini-add:hover{color:var(--accent);border-color:var(--accent)}
+.projects-list{display:flex;flex-direction:column;gap:4px;flex:1;min-height:60px;overflow-y:auto}
+.project-row{display:flex;justify-content:space-between;gap:8px;align-items:center;background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 9px;font-size:13px;color:var(--text);text-align:left}
+.project-row:hover{background:var(--panel)}
+.project-row.active{background:var(--panel);border-color:var(--border)}
+.project-row-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-row-count{background:var(--chip-bg);border-radius:10px;padding:1px 7px;font-size:11px;color:var(--muted);flex:0 0 auto}
+.side-foot{border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:9px}
+.save-status{font-size:12px;color:var(--muted);display:flex;gap:7px;align-items:center;cursor:default;min-height:16px}
+.save-status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted);flex:0 0 8px}
+.save-status.saving{color:var(--warn)}.save-status.saving::before{background:var(--warn)}
+.save-status.saved::before{background:var(--ok)}
+.save-status.error{color:var(--danger);cursor:pointer;text-decoration:underline dotted}.save-status.error::before{background:var(--danger)}
+.side-actions{display:flex;flex-wrap:wrap;gap:6px}
+.file-btn{position:relative;overflow:hidden;display:inline-block}
+.file-btn input{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px 12px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:20}
+.topbar h1{margin:0;font-size:19px}
+.subtitle{font-size:12.5px;color:var(--muted)}
+.topbar-actions{display:flex;gap:8px;align-items:center;position:relative}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:grid;place-items:center;font-size:15px;color:var(--muted);padding:0}
+.icon-btn:hover{color:var(--text);border-color:var(--accent)}
+.menu{position:absolute;top:44px;right:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);display:flex;flex-direction:column;min-width:190px;padding:6px;z-index:30}
+.menu button{background:none;border:none;text-align:left;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text)}
+.menu button:hover{background:var(--panel2)}
+
+.primary-btn{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:9px;padding:9px 16px;font-weight:600;font-size:13.5px;white-space:nowrap}
+.primary-btn:hover{background:var(--accent2);border-color:var(--accent2)}
+.primary-btn.ghost{background:transparent;color:var(--text);border-color:var(--border);padding:7px 13px;font-size:13px}
+.primary-btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:transparent}
+.ghost-btn{background:transparent;border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.ghost-btn:hover{color:var(--text);border-color:var(--accent)}
+.ghost-btn.danger:hover{color:var(--danger);border-color:var(--danger)}
+
+.view{padding:18px 22px 44px;min-width:0}
+.banner{background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.4);color:var(--text);padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}
+.card-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
+.stat-value{font-size:28px;font-weight:800;line-height:1.15}
+.stat-label{font-size:12px;color:var(--muted)}
+.stat-card.alert{border-color:rgba(255,107,107,.5)}
+.stat-card.alert .stat-value{color:var(--danger)}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border)}
+.panel-head h3{margin:0;font-size:14px}
+.panel-body{padding:10px 16px 14px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pipe-row{display:grid;grid-template-columns:175px 1fr 40px;gap:10px;align-items:center;padding:6px 0;font-size:12.5px}
+.pipe-bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden}
+.pipe-fill{display:block;height:100%;border-radius:6px}
+.pipe-count{text-align:right;color:var(--muted)}
+.mini-row{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.mini-row:last-child{border-bottom:none}
+.mini-row[data-action]{cursor:pointer}
+.mini-row[data-action]:hover{color:var(--accent)}
+.mini-date{color:var(--muted);font-size:11.5px;min-width:76px;flex:0 0 auto}
+.mini-main{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-sub{color:var(--muted);font-weight:400;font-size:11.5px}
+.mini-note{color:var(--muted);font-size:12px;text-align:right;max-width:55%}
+.mini-note.overdue,.overdue{color:var(--danger);font-weight:600}
+.empty-mini{font-size:12.5px;color:var(--muted);padding:6px 2px}
+.empty-state{text-align:center;padding:54px 20px;border:1px dashed var(--border);border-radius:14px;background:var(--panel);color:var(--muted)}
+.empty-state p{margin:0 0 14px}
+
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.input-search{flex:1;min-width:180px;max-width:330px}
+.spacer{flex:1}
+.legend{font-size:12.5px;color:var(--muted)}
+.check-line{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select{padding:7px 9px}
+textarea{min-height:76px;resize:vertical;width:100%}
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);padding:0}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.data-table{width:100%;border-collapse:collapse;font-size:13.2px}
+.data-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 12px;background:var(--panel2);border-bottom:1px solid var(--border);white-space:nowrap}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.data-table tbody tr:last-child td{border-bottom:none}
+.data-table tbody tr[data-action]{cursor:pointer}
+.data-table tbody tr[data-action]:hover{background:var(--panel2)}
+.cell-name{font-weight:600}
+.data-table tr.has-history td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.cell-undated{color:var(--muted);font-style:italic}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--chip-bg);border:1px solid transparent;color:var(--text);white-space:nowrap}
+.chip-plain{color:var(--muted)}
+.chip-danger{color:var(--danger);background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.4)}
+.chip-success{color:var(--ok);background:rgba(61,220,151,.12);border-color:rgba(61,220,151,.35)}
+.chip-warning{color:var(--warn);background:rgba(245,185,66,.12);border-color:rgba(245,185,66,.35)}
+.chip-info{color:var(--info);background:rgba(124,196,255,.12);border-color:rgba(124,196,255,.35)}
+.muted-chip{color:var(--muted);background:transparent}
+.stage-chip{color:var(--chip-color);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.05)}
+html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
+
+.task-list{display:flex;flex-direction:column;gap:8px}
+.task-row{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.task-row.done{opacity:.55}
+.task-check{flex:0 0 auto}
+.task-main{flex:1;min-width:0}
+.task-title{font-weight:600;font-size:13.4px}
+.task-sub{font-size:12px;color:var(--muted)}
+.row-actions{display:flex;gap:6px;flex:0 0 auto}
+
+.overlay{position:fixed;inset:0;background:rgba(4,8,14,.62);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+#detail-backdrop{z-index:35}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(580px,100%);background:var(--bg2);border-left:1px solid var(--border);z-index:36;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.drawer-head{display:flex;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);align-items:flex-start}
+.drawer-head h2{margin:0;font-size:17px}
+.drawer-body{overflow-y:auto;padding:14px 18px 48px;display:flex;flex-direction:column;gap:14px}
+.detail-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.detail-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.detail-section-head h3{margin:0;font-size:13.5px}
+.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;justify-content:flex-end}
+.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.kv.wide{grid-column:1 / -1}
+.kv-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.kv-value{font-size:13.3px;word-break:break-word;white-space:pre-wrap}
+.contact-card{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel2)}
+.contact-card.has-review{border-color:rgba(255,107,107,.45)}
+.contact-card-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.contact-primary{font-weight:600}
+.contact-secondary{color:var(--muted);font-size:12.5px}
+.contact-line{font-size:12.5px;color:var(--muted);margin-top:3px}
+.contact-card-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.flag-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.flag{font-size:11px;color:var(--danger);background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.4);border-radius:6px;padding:1px 7px}
+.engagement-controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.engagement-controls label{display:flex;flex-direction:column;gap:4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.engagement-meta{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.engagement-block.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 2px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.legacy-box{border:1px dashed var(--border);border-radius:9px;padding:8px 12px;margin-top:8px;font-size:12.5px}
+.legacy-box summary{cursor:pointer;color:var(--muted)}
+.legacy-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px}
+.activity-row{display:grid;grid-template-columns:auto auto 1fr;gap:4px 10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.8px;align-items:center}
+.activity-row:last-child{border-bottom:none}
+.activity-row.undated{opacity:.75}
+.activity-date{color:var(--muted);font-size:11.5px;min-width:76px}
+.activity-meta{grid-column:1 / -1;color:var(--muted);font-size:11.5px}
+
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(660px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal-head h2{margin:0;font-size:16px}
+.modal-body{padding:16px 18px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;align-content:start}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:600}
+.field.wide,.check-field{grid-column:1 / -1}
+.field input,.field select{width:100%;font-weight:400}
+.help-text{font-weight:400;font-size:11.5px;color:var(--muted)}
+.modal-divider{grid-column:1 / -1;border-top:1px solid var(--border);padding-top:10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border)}
+
+.card-dialog{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:min(460px,100%);box-shadow:var(--shadow)}
+.card-dialog h2{margin:0 0 8px;font-size:17px}
+.card-dialog p{color:var(--muted);font-size:13px;margin:0 0 16px}
+.dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+
+.toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:340px}
+.toast{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--info);border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s}
+.toast.show{opacity:1;transform:none}
+.toast.error{border-left-color:var(--danger)}
+.toast.success{border-left-color:var(--ok)}
+
+@media (max-width:900px){
+  .split{grid-template-columns:1fr}
+  .modal-body{grid-template-columns:1fr}
+  .kv-grid,.legacy-grid{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .app{flex-direction:column}
+  .sidebar{width:auto;height:auto;position:static;flex:none;border-right:none;border-bottom:1px solid var(--border)}
+  .projects-list{max-height:130px}
+  .view{padding:14px 14px 40px}
+  .topbar{padding:12px 14px 10px;flex-wrap:wrap}
+  .pipe-row{grid-template-columns:110px 1fr 34px}
+}
+</style>
 </head>
 <body>
-  <header>
-    <div class="header-row">
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">H</div>
       <div>
-        <h1>Hartmann &ndash; Outreach Tracker CRM</h1>
-        <p>Track which financial institutions you reached out to, per project &middot; Data saved to GitHub</p>
-      </div>
-      <div class="actions-row">
-        <span class="save-status" id="save-status"><span class="dot"></span><span id="save-status-text">Loading&hellip;</span></span>
-        <button class="ghost-btn" id="reload-btn" title="Discard local changes and reload from GitHub">Reload from GitHub</button>
-        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
-          <span id="theme-toggle-label">Switch to Light UI</span>
-        </button>
+        <div class="brand-name">Hartmann</div>
+        <div class="brand-sub">Outreach Tracker</div>
       </div>
     </div>
-  </header>
-
-  <main class="layout">
-    <div class="left-column">
-      <aside class="panel">
-        <div class="panel-header">
-          <h2>Projects</h2>
-          <button class="ghost-btn" id="add-project-btn">+ Add project</button>
-        </div>
-        <div class="projects-list" id="projects-list"></div>
-      </aside>
-      <aside class="panel">
-        <div class="panel-header">
-          <h2>Tasks</h2>
-          <button class="ghost-btn" id="add-task-btn" disabled>+ Add task</button>
-        </div>
-        <div class="tasks-list" id="tasks-list"></div>
-        <div class="empty-state" id="tasks-empty">Select a project to manage tasks</div>
-      </aside>
+    <nav class="nav">
+      <button class="nav-btn active" data-nav="overview" data-action="open-view" data-view="overview">Overview</button>
+      <button class="nav-btn" data-nav="tracker" data-action="open-view" data-view="tracker">Projects</button>
+      <button class="nav-btn" data-nav="directory" data-action="open-view" data-view="directory">Investor Directory</button>
+      <button class="nav-btn" data-nav="tasks" data-action="open-view" data-view="tasks">Tasks</button>
+    </nav>
+    <div class="side-section-head"><span>Projects</span><button class="mini-add" data-action="add-project" title="New project">+</button></div>
+    <div id="projects-list" class="projects-list"></div>
+    <div class="side-foot">
+      <div id="save-status" class="save-status" title="Click to retry a failed save"><span id="save-status-text">Not signed in</span></div>
+      <div class="side-actions">
+        <button class="ghost-btn" data-action="export-json">JSON</button>
+        <button class="ghost-btn" data-action="export-csv">CSV</button>
+        <label class="ghost-btn file-btn">Import JSON<input type="file" id="import-json-input" accept=".json,application/json" /></label>
+        <label class="ghost-btn file-btn">Import CSV<input type="file" id="import-csv-input" accept=".csv,text/csv" /></label>
+        <button class="ghost-btn" data-action="reload-data">Reload</button>
+        <button class="ghost-btn" data-action="toggle-theme"><span id="theme-toggle-label">Light UI</span></button>
+      </div>
     </div>
+  </aside>
 
-    <section class="content">
-      <div class="content-header">
-        <div class="content-title-group">
-          <h2 id="active-project-title">Select or add a project</h2>
-          <p id="active-project-subtitle">No project selected</p>
-        </div>
-        <div class="actions-row">
-          <div class="search-wrap">
-            <input id="search-input" placeholder="Search..." />
-          </div>
-          <select id="outreach-filter" class="filter-select" title="Filter by outreach status">
-            <option value="all">All</option>
-            <option value="reached">Reached out</option>
-            <option value="not">Not reached out</option>
-          </select>
-          <button class="ghost-btn" id="export-csv-btn" disabled>Export CSV</button>
-          <button class="ghost-btn" id="export-json-btn" disabled>Export JSON</button>
-          <label class="ghost-btn" style="cursor:pointer">
-            Import CSV
-            <input type="file" id="import-csv-input" accept=".csv,text/csv" hidden />
-          </label>
-          <label class="ghost-btn" style="cursor:pointer">
-            Import JSON
-            <input type="file" id="import-json-input" accept=".json,application/json" hidden />
-          </label>
-          <button class="primary-btn ghost" id="rename-project-btn" disabled>Rename project</button>
-          <button class="primary-btn ghost" id="delete-project-btn" disabled>Delete project</button>
-          <button class="primary-btn" id="add-institution-btn" disabled>+ Add institution</button>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-titles">
+        <h1 id="view-title">Overview</h1>
+        <div id="view-subtitle" class="subtitle"></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="primary-btn" id="primary-action-btn" data-action="add-project">New project</button>
+        <button class="icon-btn" id="menu-btn" data-action="toggle-menu" title="Menu">&#8943;</button>
+        <div id="menu" class="menu hidden">
+          <button data-action="reload-data">Reload from backend</button>
+          <button data-action="export-json">Export JSON backup</button>
+          <button data-action="export-csv">Export CSV</button>
+          <button data-action="toggle-theme"><span id="theme-toggle-label-menu">Toggle theme</span></button>
         </div>
       </div>
+    </header>
 
-      <div class="table-wrapper">
-        <div class="table-scroll">
-          <table>
-            <colgroup>
-              <col style="width: 130px" />
-              <col style="width: 180px" />
-              <col style="width: 90px" />
-              <col style="width: 1fr" />
-              <col style="width: 80px" />
-              <col style="width: 110px" />
-              <col style="width: 110px" />
-              <col style="width: 80px" />
-              <col style="width: 80px" />
-              <col style="width: 170px" />
-              <col style="width: 100px" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Reached out</th>
-                <th>Company name</th>
-                <th>Type</th>
-                <th>Contacts</th>
-                <th>Importance</th>
-                <th>Who reached out</th>
-                <th>Date reached out</th>
-                <th>Response</th>
-                <th>Moving forward</th>
-                <th>Next steps</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="institutions-tbody"></tbody>
-          </table>
-        </div>
-        <div class="empty-state" id="empty-state" hidden>
-          <p>No institutions added yet for this project.</p>
-          <p style="margin-top: 8px;">Click "+ Add institution" to create your first entry.</p>
-        </div>
+    <section id="view-overview" class="view"></section>
+    <section id="view-tracker" class="view hidden"></section>
+    <section id="view-directory" class="view hidden"></section>
+    <section id="view-tasks" class="view hidden"></section>
+  </div>
+</div>
+
+<div id="detail-backdrop" class="overlay hidden"></div>
+<aside id="detail-drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div>
+      <h2 id="detail-name"></h2>
+      <div id="detail-meta" class="subtitle"></div>
+    </div>
+    <button class="icon-btn" id="detail-close" title="Close">&#10005;</button>
+  </div>
+  <div id="detail-body" class="drawer-body"></div>
+</aside>
+
+<div id="modal-backdrop" class="overlay hidden">
+  <div class="modal">
+    <form id="modal-form">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button type="button" class="icon-btn" id="modal-close" title="Close">&#10005;</button>
       </div>
-    </section>
-  </main>
-
-  <div class="modal-backdrop" id="institution-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 id="modal-title">Add institution</h2>
-        <button class="ghost-btn" id="close-modal-btn" type="button">Close</button>
+      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-foot">
+        <button type="button" class="ghost-btn" id="modal-cancel">Cancel</button>
+        <button type="submit" class="primary-btn" id="modal-submit">Save</button>
       </div>
-      <form id="institution-form">
-        <div class="modal-body">
-          <div class="modal-section">
-            <h3>Institution details</h3>
-            <div class="field">
-              <label for="company-name">Company name</label>
-              <input id="company-name" name="companyName" required placeholder="e.g. Goldman Sachs" />
-              <span class="help-text">Official legal name of the institution</span>
-            </div>
-            <div class="field">
-              <label for="company-type">Type</label>
-              <select id="company-type" name="companyType" required>
-                <option value="" disabled selected>Select type</option>
-                <option value="Family Office">Family Office</option>
-                <option value="Bank">Bank</option>
-                <option value="Private Bank">Private Bank</option>
-                <option value="Wealth Manager">Wealth Manager</option>
-                <option value="Fund / LP">Fund / LP</option>
-                <option value="Multi-Family Office">Multi-Family Office</option>
-                <option value="Broker Dealer">Broker Dealer</option>
-                <option value="Other">Other</option>
-              </select>
-              <span class="help-text">Category for filtering and reporting</span>
-            </div>
-            <div class="field">
-              <label for="importance">Importance</label>
-              <select id="importance" name="importance" required>
-                <option value="" disabled selected>Select</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-              <span class="help-text">Priority level for outreach efforts</span>
-            </div>
-          </div>
+    </form>
+  </div>
+</div>
 
-          <div class="modal-section">
-            <h3>Contacts</h3>
-            <p class="help-text">Add each person you're engaging with. Outreach fields are per-contact.</p>
-            <div class="contacts-container">
-              <div id="contacts-list"></div>
-              <div>
-                <button class="ghost-btn" type="button" id="add-contact-btn">+ Add contact</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="primary-btn ghost" type="button" id="cancel-modal-btn">Cancel</button>
-          <button class="primary-btn" type="submit">Save</button>
-        </div>
-      </form>
+<div id="conflict-backdrop" class="overlay hidden">
+  <div class="card-dialog">
+    <h2>Someone else saved first</h2>
+    <p id="conflict-text"></p>
+    <div class="dialog-actions">
+      <button class="primary-btn" id="conflict-overwrite">Save mine over theirs</button>
+      <button class="ghost-btn" id="conflict-reload">Discard mine, load theirs</button>
     </div>
   </div>
+</div>
 
-  <div class="modal-backdrop" id="task-modal">
-    <div class="modal" style="width:min(520px,100%)">
-      <div class="modal-header">
-        <h2 id="task-modal-title">Add task</h2>
-        <button class="ghost-btn" id="close-task-modal-btn" type="button">Close</button>
-      </div>
-      <form id="task-form">
-        <div class="modal-body">
-          <div class="field full">
-            <label for="task-title">Task</label>
-            <input id="task-title" name="taskTitle" required placeholder="e.g. Follow up with Goldman" />
-          </div>
-          <div class="field full">
-            <label for="task-status">Status</label>
-            <select id="task-status" name="taskStatus">
-              <option value="Pending">Pending</option>
-              <option value="Ongoing">Ongoing</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="primary-btn ghost" type="button" id="cancel-task-modal-btn">Cancel</button>
-          <button class="primary-btn" type="submit">Save</button>
-        </div>
-      </form>
+<div id="fatal-backdrop" class="overlay hidden">
+  <div class="card-dialog">
+    <h2 id="fatal-title">Cannot open data</h2>
+    <p id="fatal-text"></p>
+    <div class="dialog-actions">
+      <button class="primary-btn" id="fatal-retry">Try again</button>
     </div>
   </div>
-
-  <script>
-    const GITHUB_OWNER = "Suzana991";
-    const GITHUB_REPO = "hartmann-crm";
-    const GITHUB_BRANCH = "data";
-    const DATA_PATH = "data.json";
-    const GITHUB_TOKEN = ["ghp_", "kNadNgeF6BiQGaXejP", "1woDegPVs2sT3uPyW9"].join("");
-    const THEME_KEY = "hartmann-crm-theme";
-    const apiBase = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO;
-    const rawBase = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO;
-
-    const projectsListEl = document.getElementById("projects-list");
-    const addProjectBtn = document.getElementById("add-project-btn");
-    const activeProjectTitle = document.getElementById("active-project-title");
-    const activeProjectSubtitle = document.getElementById("active-project-subtitle");
-    const renameProjectBtn = document.getElementById("rename-project-btn");
-    const deleteProjectBtn = document.getElementById("delete-project-btn");
-    const addInstitutionBtn = document.getElementById("add-institution-btn");
-    const institutionsTbody = document.getElementById("institutions-tbody");
-    const emptyState = document.getElementById("empty-state");
-    const searchInput = document.getElementById("search-input");
-    const outreachFilterEl = document.getElementById("outreach-filter");
-    const exportCsvBtn = document.getElementById("export-csv-btn");
-    const exportJsonBtn = document.getElementById("export-json-btn");
-    const importJsonInput = document.getElementById("import-json-input");
-    const importCsvInput = document.getElementById("import-csv-input");
-    const themeToggle = document.getElementById("theme-toggle");
-    const themeToggleLabel = document.getElementById("theme-toggle-label");
-    const reloadBtn = document.getElementById("reload-btn");
-    const saveStatusEl = document.getElementById("save-status");
-    const saveStatusText = document.getElementById("save-status-text");
-
-    const modal = document.getElementById("institution-modal");
-    const modalTitle = document.getElementById("modal-title");
-    const closeModalBtn = document.getElementById("close-modal-btn");
-    const cancelModalBtn = document.getElementById("cancel-modal-btn");
-    const institutionForm = document.getElementById("institution-form");
-    const contactsListEl = document.getElementById("contacts-list");
-    const addContactBtn = document.getElementById("add-contact-btn");
-
-    const addTaskBtn = document.getElementById("add-task-btn");
-    const tasksListEl = document.getElementById("tasks-list");
-    const tasksEmpty = document.getElementById("tasks-empty");
-    const taskModal = document.getElementById("task-modal");
-    const taskModalTitle = document.getElementById("task-modal-title");
-    const closeTaskModalBtn = document.getElementById("close-task-modal-btn");
-    const cancelTaskModalBtn = document.getElementById("cancel-task-modal-btn");
-    const taskForm = document.getElementById("task-form");
-
-    let state = { projects: [], activeProjectId: null };
-    let activeProjectId = null;
-    let editingInstitutionId = null;
-    let editingTaskId = null;
-    let searchTerm = "";
-    let outreachFilter = "all";
-    let lastSavedHash = null;
-
-    const REPS = ["Suzana", "Bruno", "Both", "Other"];
-
-    /* ---------- GitHub persistence ---------- */
-
-    function setStatus(kind, msg) {
-      saveStatusEl.className = "save-status " + kind;
-      saveStatusText.textContent = msg;
-    }
-
-    function utf8ToBase64(str) {
-      const bytes = new TextEncoder().encode(str);
-      let bin = "";
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      return btoa(bin);
-    }
-
-    function base64ToUtf8(b64) {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return new TextDecoder().decode(bytes);
-    }
-
-    async function apiGet(path) {
-      const sep = path.indexOf("?") === -1 ? "?" : "&";
-      const res = await fetch(apiBase + "/" + path + sep + "_t=" + Date.now() + Math.random(), {
-        headers: {
-          "Accept": "application/vnd.github+json",
-          "Authorization": "Bearer " + GITHUB_TOKEN,
-          "X-GitHub-Api-Version": "2022-11-28"
-        }
-      });
-      if (res.status === 404) throw { status: 404 };
-      if (!res.ok) {
-        const body = await res.json().catch(function () { return {}; });
-        throw { status: res.status, message: (body && body.message) || "API error" };
-      }
-      return res.json();
-    }
-
-    async function apiPut(path, body) {
-      const res = await fetch(apiBase + "/" + path, {
-        method: "PUT",
-        headers: {
-          "Accept": "application/vnd.github+json",
-          "Authorization": "Bearer " + GITHUB_TOKEN,
-          "X-GitHub-Api-Version": "2022-11-28",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      const payload = await res.json().catch(function () { return {}; });
-      if (!res.ok) throw { status: res.status, message: (payload && payload.message) || "API error" };
-      return payload;
-    }
-
-    function hashState() {
-      return JSON.stringify(state);
-    }
-
-    function normalizeKey(s) {
-      return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
-    }
-
-    function mergeStates(remote, local) {
-      const result = { projects: [], activeProjectId: null };
-      const indexBy = function (p) { return p.id ? "id:" + p.id : "name:" + normalizeKey(p.name); };
-      const instKey = function (i) { return i.id ? "id:" + i.id : "name:" + normalizeKey(i.companyName); };
-      const remoteMap = {};
-      const localMap = {};
-      const order = {};
-
-      function addTo(map, project) {
-        const k = indexBy(project);
-        if (!map[k]) map[k] = project;
-        return map[k];
-      }
-
-      (remote.projects || []).forEach(function (p) { const k = indexBy(p); remoteMap[k] = p; order[k] = order[k] || p; });
-      (local.projects || []).forEach(function (p) { const k = indexBy(p); localMap[k] = p; order[k] = order[k] || p; });
-
-      const seen = {};
-      Object.keys(order).forEach(function (k) {
-        const r = remoteMap[k];
-        const l = localMap[k];
-        let p;
-        if (r && l) {
-          p = JSON.parse(JSON.stringify(l));
-          p.institutions = mergeInstitutions(r.institutions || [], l.institutions || []);
-          p.tasks = mergeTasks(r.tasks || [], l.tasks || []);
-        } else {
-          p = JSON.parse(JSON.stringify(r || l));
-          p.institutions = p.institutions || [];
-          p.tasks = p.tasks || [];
-        }
-        seen[k] = true;
-        result.projects.push(p);
-      });
-      result.activeProjectId = (local.activeProjectId && result.projects.some(function (p) { return p.id === local.activeProjectId; }))
-        ? local.activeProjectId
-        : (result.projects[0] ? result.projects[0].id : null);
-      return result;
-    }
-
-    function mergeInstitutions(remoteList, localList) {
-      const map = {};
-      const order = {};
-      remoteList.forEach(function (i) { const k = instKeyInner(i); if (!map[k]) map[k] = JSON.parse(JSON.stringify(i)); order[k] = order[k] || map[k]; });
-      localList.forEach(function (i) {
-        const k = instKeyInner(i);
-        if (!map[k]) {
-          map[k] = JSON.parse(JSON.stringify(i));
-          order[k] = map[k];
-        } else {
-          const merged = JSON.parse(JSON.stringify(i));
-          merged.contacts = mergeContacts((map[k].contacts || []), (i.contacts || []));
-          map[k] = merged;
-          order[k] = merged;
-        }
-      });
-      return Object.keys(order).map(function (k) { return order[k]; });
-    }
-
-    function instKeyInner(i) {
-      return i.id ? "id:" + i.id : "name:" + normalizeKey(i.companyName);
-    }
-
-    function mergeContacts(listA, listB) {
-      const combined = (listB || []).concat(listA || []);
-      const map = {};
-      const out = [];
-      combined.forEach(function (c) {
-        const k = (c && c.email) ? "e:" + normalizeKey(c.email) : "n:" + normalizeKey(c.name);
-        if (!map[k]) {
-          map[k] = c;
-          out.push(c);
-        } else {
-          // Merge outreach fields from the new contact (listB takes precedence for non-empty values)
-          const existing = out[out.findIndex(function (x) { 
-            const xk = (x && x.email) ? "e:" + normalizeKey(x.email) : "n:" + normalizeKey(x.name);
-            return xk === k;
-          })];
-          if (existing) {
-            if (c.reachedOut !== undefined) existing.reachedOut = c.reachedOut;
-            if (c.whoReachedOut) existing.whoReachedOut = c.whoReachedOut;
-            if (c.dateReachedOut) existing.dateReachedOut = c.dateReachedOut;
-            if (c.response) existing.response = c.response;
-            if (c.movingForward) existing.movingForward = c.movingForward;
-            if (c.nextSteps) existing.nextSteps = c.nextSteps;
-          }
-        }
-      });
-      return out;
-    }
-
-    function mergeTasks(listA, listB) {
-      const map = {};
-      (listA || []).forEach(function (t) { if (t && t.id) map[t.id] = JSON.parse(JSON.stringify(t)); });
-      (listB || []).forEach(function (t) { if (t && t.id) map[t.id] = JSON.parse(JSON.stringify(t)); });
-      return Object.keys(map).map(function (k) { return map[k]; });
-    }
-
-    async function loadFromGithub() {
-      try {
-        const file = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
-        const parsed = JSON.parse(base64ToUtf8(file.content));
-        if (!parsed || !Array.isArray(parsed.projects)) throw new Error("Invalid data.json structure");
-        return parsed;
-      } catch (err) {
-        if (err && err.status === 404) return { projects: [], activeProjectId: null };
-        throw err;
-      }
-    }
-
-    async function saveToGithub() {
-      let lastErr = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        try {
-          let sha = null;
-          let remote = null;
-          try {
-            const existing = await apiGet("contents/" + DATA_PATH + "?ref=" + GITHUB_BRANCH);
-            sha = existing.sha;
-            remote = JSON.parse(base64ToUtf8(existing.content));
-          } catch (err) {
-            if (!(err && err.status === 404)) throw err;
-          }
-
-          if (remote && attempt > 0) {
-            const merged = mergeStates(remote, state);
-            state = merged;
-            activeProjectId = state.activeProjectId || activeProjectId;
-            state.activeProjectId = activeProjectId;
-          }
-
-          const content = utf8ToBase64(JSON.stringify(state, null, 2));
-          const body = {
-            message: "Update CRM data (" + new Date().toLocaleString() + ")",
-            content: content,
-            branch: GITHUB_BRANCH
-          };
-          if (sha) body.sha = sha;
-          const resp = await apiPut("contents/" + DATA_PATH, body);
-          lastSavedHash = hashState();
-          renderAll();
-          setStatus("saved", "Saved to GitHub - " + new Date().toLocaleTimeString());
-          return resp;
-        } catch (err) {
-          lastErr = err;
-          if (err && (err.status === 409 || err.status === 422)) {
-            await new Promise(function (r) { setTimeout(r, 400 * (attempt + 1)); });
-            continue;
-          }
-          break;
-        }
-      }
-      setStatus("error", "Error saving: " + (lastErr && lastErr.message ? lastErr.message : "failed"));
-      throw lastErr;
-    }
-
-    let saveInFlight = false;
-    let needsSave = false;
-    let saveTimer = null;
-
-    function persistState() {
-      needsSave = true;
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(function () { flushSave(); }, 500);
-    }
-
-    async function flushSave() {
-      if (!needsSave || saveInFlight) return;
-      needsSave = false;
-      saveInFlight = true;
-      setStatus("saving", "Saving to GitHub...");
-      try {
-        await saveToGithub();
-      } catch (err) {
-        /* status already set by saveToGithub */
-      } finally {
-        saveInFlight = false;
-        if (needsSave) {
-          clearTimeout(saveTimer);
-          saveTimer = setTimeout(function () { flushSave(); }, 100);
-        }
-      }
-    }
-
-    /* ---------- Rendering ---------- */
-
-    function uid() {
-      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return "";
-      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    function getActiveProject() {
-      if (!activeProjectId) return null;
-      return state.projects.find(p => p.id === activeProjectId) || null;
-    }
-
-    function initTheme() {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === "light") {
-        document.documentElement.classList.add("light");
-        themeToggleLabel.textContent = "Switch to Dark UI";
-      }
-    }
-
-    function toggleTheme() {
-      const isLight = document.documentElement.classList.toggle("light");
-      themeToggleLabel.textContent = isLight ? "Switch to Dark UI" : "Switch to Light UI";
-      localStorage.setItem(THEME_KEY, isLight ? "light" : "dark");
-    }
-
-    function renderAll() {
-      renderProjects();
-      renderTasks();
-      renderContent();
-    }
-
-    function renderProjects() {
-      projectsListEl.innerHTML = "";
-      if (state.projects.length === 0) {
-        const d = document.createElement("div");
-        d.className = "empty-state";
-        d.style.padding = "24px";
-        d.textContent = "No projects yet";
-        projectsListEl.appendChild(d);
-        return;
-      }
-      for (const project of state.projects) {
-        const btn = document.createElement("button");
-        btn.className = "project-tab" + (project.id === activeProjectId ? " active" : "");
-        btn.innerHTML =
-          '<div><div class="project-tab-name">' + escapeHtml(project.name) +
-          '</div><div class="project-tab-meta">' + (project.institutions || []).length +
-          ' institution' + ((project.institutions || []).length === 1 ? "" : "s") + "</div></div>";
-        btn.addEventListener("click", function () {
-          activeProjectId = project.id;
-          state.activeProjectId = activeProjectId;
-          persistState();
-          renderAll();
-        });
-        projectsListEl.appendChild(btn);
-      }
-    }
-
-    function renderContent() {
-      const project = getActiveProject();
-      if (!project) {
-        activeProjectTitle.textContent = "Select or add a project";
-        activeProjectSubtitle.textContent = "No project selected";
-        renameProjectBtn.disabled = true;
-        deleteProjectBtn.disabled = true;
-        addInstitutionBtn.disabled = true;
-        exportCsvBtn.disabled = true;
-        exportJsonBtn.disabled = true;
-        institutionsTbody.innerHTML = "";
-        emptyState.hidden = false;
-        emptyState.querySelectorAll("p")[0].textContent = "No project selected.";
-        emptyState.querySelectorAll("p")[1].textContent = "Create a project from the left panel to get started.";
-        return;
-      }
-      const list = (project.institutions || []);
-      const count = list.length;
-      const totalContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).length; }, 0);
-      const reachedContacts = list.reduce(function (sum, i) { return sum + (i.contacts || []).filter(function (c) { return c.reachedOut; }).length; }, 0);
-      activeProjectTitle.textContent = project.name;
-      activeProjectSubtitle.textContent = count + " institution" + (count === 1 ? "" : "s") + " · " + totalContacts + " contacts · " + reachedContacts + " reached out";
-      renameProjectBtn.disabled = false;
-      deleteProjectBtn.disabled = false;
-      addInstitutionBtn.disabled = false;
-      exportCsvBtn.disabled = false;
-      exportJsonBtn.disabled = false;
-
-      institutionsTbody.innerHTML = "";
-      const filtered = list.filter(function (inst) {
-        if (outreachFilter === "reached" && !(inst.contacts || []).some(function (c) { return c.reachedOut; })) return false;
-        if (outreachFilter === "not" && (inst.contacts || []).every(function (c) { return c.reachedOut; })) return false;
-        if (!searchTerm) return true;
-        const hay = [
-          inst.companyName, inst.companyType, inst.importance
-        ].join(" ") + " " + (inst.contacts || []).map(function (c) {
-          return (c.name || "") + " " + (c.email || "") + " " + (c.whoReachedOut || "") + " " + (c.response || "") + " " + (c.movingForward || "") + " " + (c.nextSteps || "");
-        }).join(" ");
-        return hay.toLowerCase().indexOf(searchTerm) !== -1;
-      });
-
-      if (filtered.length === 0) {
-        emptyState.hidden = false;
-        if (list.length === 0) {
-          emptyState.querySelectorAll("p")[0].textContent = "No institutions added yet for this project.";
-          emptyState.querySelectorAll("p")[1].textContent = 'Click "+ Add institution" to create your first entry.';
-        } else if (searchTerm || outreachFilter !== "all") {
-          emptyState.querySelectorAll("p")[0].textContent = "No institutions match your search or filter.";
-          emptyState.querySelectorAll("p")[1].textContent = "";
-        } else {
-          emptyState.querySelectorAll("p")[0].textContent = "No institutions match your search.";
-          emptyState.querySelectorAll("p")[1].textContent = "";
-        }
-        return;
-      }
-      emptyState.hidden = true;
-
-      for (const inst of filtered) {
-        const instReached = (inst.contacts || []).filter(function (c) { return c.reachedOut; }).length;
-        const instTotal = (inst.contacts || []).length;
-        const anyReached = instReached > 0;
-        const reachedPill = anyReached
-          ? '<button class="reached-pill is-reached" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as not reached out">&check; Reached out</button>'
-          : '<button class="reached-pill" data-action="toggle-reached" data-id="' + escapeHtml(inst.id) + '" title="Click to mark as reached out">Mark reached out</button>';
-        const firstContact = (inst.contacts && inst.contacts.length) ? inst.contacts[0] : null;
-        const contactsHtml = firstContact
-          ? '<span class="contact-line">' +
-            '<span class="cl-name">' + escapeHtml(firstContact.name || "?") + "</span>" +
-            (firstContact.title ? ' <span class="cl-title">' + escapeHtml(firstContact.title) + "</span>" : "") +
-            (firstContact.email ? ' <span class="cl-email">' + escapeHtml(firstContact.email) + "</span>" : "") +
-            "</span>"
-          : '<span class="contact-line">' + escapeHtml(inst.contactInfo || "—") + "</span>";
-        const contactCountHtml = instTotal > 0 ? '<span class="contact-count">(' + instTotal + ')</span>' : '';
-        const whoHtml = firstContact ? (firstContact.whoReachedOut || "—") : "—";
-        const dateHtml = firstContact ? (firstContact.dateReachedOut || "—") : "—";
-        const respHtml = firstContact ? renderResponse(firstContact.response) : renderResponse("");
-        const mfHtml = firstContact ? renderMovingForward(firstContact.movingForward) : renderMovingForward("");
-        const nextHtml = firstContact ? escapeHtml(firstContact.nextSteps || "—").replace(/\n/g, "<br>") : "—";
-
-        const tr = document.createElement("tr");
-        tr.className = anyReached ? "reached-out" : "not-reached";
-        tr.innerHTML =
-          "<td>" + reachedPill + "</td>" +
-          "<td>" + escapeHtml(inst.companyName || "—") + contactCountHtml + "</td>" +
-          '<td><span class="tag">' + escapeHtml(inst.companyType || "—") + "</span></td>" +
-          "<td>" + contactsHtml + "</td>" +
-          "<td>" + renderImportance(inst.importance) + "</td>" +
-          '<td><span class="tag">' + escapeHtml(whoHtml) + "</span></td>" +
-          "<td>" + dateHtml + "</td>" +
-          "<td>" + respHtml + "</td>" +
-          "<td>" + mfHtml + "</td>" +
-          "<td>" + nextHtml + "</td>" +
-          '<td><div class="row-actions">' +
-          '<button class="ghost-btn" data-action="edit" data-id="' + escapeHtml(inst.id) + '">Edit</button>' +
-          '<button class="ghost-btn" data-action="delete" data-id="' + escapeHtml(inst.id) + '">Delete</button>' +
-          "</div></td>";
-        institutionsTbody.appendChild(tr);
-      }
-    }
-
-    function renderImportance(v) {
-      v = v || "—";
-      if (v === "High") return '<span class="tag tag-danger">High</span>';
-      if (v === "Medium") return '<span class="tag tag-warning">Medium</span>';
-      if (v === "Low") return '<span class="tag">Low</span>';
-      return '<span class="tag">' + escapeHtml(v) + "</span>";
-    }
-
-    function renderResponse(v) {
-      v = v || "Pending";
-      if (v === "Yes") return '<span class="tag tag-success">Yes</span>';
-      if (v === "No") return '<span class="tag tag-danger">No</span>';
-      if (v === "Follow up") return '<span class="tag tag-warning">Follow up</span>';
-      return '<span class="tag">Pending</span>';
-    }
-
-    function renderMovingForward(v) {
-      v = v || "TBD";
-      if (v === "Yes") return '<span class="tag tag-success">Yes</span>';
-      if (v === "No") return '<span class="tag tag-danger">No</span>';
-      if (v === "On hold") return '<span class="tag tag-warning">On hold</span>';
-      return '<span class="tag">TBD</span>';
-    }
-
-    function whoSelectHtml(inst) {
-      let out = '<select class="who-select" data-who data-id="' + escapeHtml(inst.id) + '" title="Who reached out">' +
-        '<option value=""' + (!inst.whoReachedOut ? " selected" : "") + ">—</option>";
-      REPS.forEach(function (r) {
-        out += '<option value="' + r + '"' + (inst.whoReachedOut === r ? " selected" : "") + ">" + r + "</option>";
-      });
-      out += "</select>";
-      return out;
-    }
-
-    function renderTasks() {
-      const project = getActiveProject();
-      tasksListEl.innerHTML = "";
-      addTaskBtn.disabled = !project;
-      if (!project) {
-        tasksEmpty.textContent = "Select a project to manage tasks";
-        tasksEmpty.classList.remove("hidden");
-        return;
-      }
-      const tasks = project.tasks || [];
-      if (tasks.length === 0) {
-        tasksEmpty.textContent = "No tasks for this project";
-        tasksEmpty.classList.remove("hidden");
-        return;
-      }
-      tasksEmpty.classList.add("hidden");
-      for (const task of tasks) {
-        const item = document.createElement("div");
-        item.className = "task-item";
-        const cls = task.status === "Completed" ? "status-completed" : task.status === "Ongoing" ? "status-ongoing" : "status-pending";
-        item.innerHTML =
-          '<div class="task-header"><div class="task-title">' + escapeHtml(task.title) + "</div></div>" +
-          '<div class="task-meta">' +
-          '<button class="status-pill ' + cls + '" data-action="cycle" data-id="' + escapeHtml(task.id) + '" title="Click to change status">' + escapeHtml(task.status) + "</button>" +
-          '<div class="task-actions">' +
-          '<button class="ghost-btn" data-action="edit-task" data-id="' + escapeHtml(task.id) + '">Edit</button>' +
-          '<button class="ghost-btn" data-action="delete-task" data-id="' + escapeHtml(task.id) + '">Delete</button>' +
-          "</div></div>";
-        tasksListEl.appendChild(item);
-      }
-    }
-
-    /* ---------- Projects ---------- */
-
-    addProjectBtn.addEventListener("click", function () {
-      const name = prompt("Project name:");
-      if (!name || !name.trim()) return;
-      const project = { id: uid(), name: name.trim(), institutions: [], tasks: [] };
-      state.projects.push(project);
-      activeProjectId = project.id;
-      state.activeProjectId = activeProjectId;
-      persistState();
-      renderAll();
-    });
-
-    renameProjectBtn.addEventListener("click", function () {
-      const project = getActiveProject();
-      if (!project) return;
-      const name = prompt("New project name:", project.name);
-      if (!name || !name.trim()) return;
-      project.name = name.trim();
-      persistState();
-      renderAll();
-    });
-
-    deleteProjectBtn.addEventListener("click", function () {
-      const project = getActiveProject();
-      if (!project) return;
-      if (!confirm('Delete "' + project.name + '" and all its data? This cannot be undone.')) return;
-      state.projects = state.projects.filter(function (p) { return p.id !== project.id; });
-      activeProjectId = state.projects.length ? state.projects[0].id : null;
-      state.activeProjectId = activeProjectId;
-      persistState();
-      renderAll();
-    });
-
-    /* ---------- Institution modal ---------- */
-
-    function addContactRow(contact) {
-      const row = document.createElement("div");
-      row.className = "contact-row";
-      const n = contact.name || "";
-      const t = contact.title || "";
-      const e = contact.email || "";
-      const reached = contact.reachedOut || false;
-      const who = contact.whoReachedOut || "";
-      const date = contact.dateReachedOut || "";
-      const resp = contact.response || "Pending";
-      const mf = contact.movingForward || "TBD";
-      const next = contact.nextSteps || "";
-      row.innerHTML =
-        '<div class="contact-field wide"><label>Full name</label><input class="contact-name" placeholder="e.g. John Smith" value="' + escapeHtml(n) + '" /></div>' +
-        '<div class="contact-field"><label>Title</label><input class="contact-title" placeholder="e.g. CEO, Partner" value="' + escapeHtml(t) + '" /></div>' +
-        '<div class="contact-field wide"><label>Email</label><input class="contact-email" type="email" placeholder="john@firm.com" value="' + escapeHtml(e) + '" /></div>' +
-        '<div class="contact-field"><label>Reached out</label><label class="checkbox-wrap"><input type="checkbox" class="contact-reached" ' + (reached ? "checked" : "") + ' /><span>Yes</span></label></div>' +
-        '<div class="contact-field wide"><label>Who reached out</label><select class="contact-who">' +
-        '<option value="">—</option>' +
-        REPS.map(function (r) { return '<option value="' + r + '"' + (who === r ? " selected" : "") + '>' + r + '</option>'; }).join("") +
-        '</select></div>' +
-        '<div class="contact-field"><label>Date reached out</label><input type="date" class="contact-date" value="' + escapeHtml(date) + '" /></div>' +
-        '<div class="contact-field"><label>Response</label><select class="contact-response">' +
-        '<option value="Pending"' + (resp === "Pending" ? " selected" : "") + '>Pending</option>' +
-        '<option value="Yes"' + (resp === "Yes" ? " selected" : "") + '>Yes</option>' +
-        '<option value="No"' + (resp === "No" ? " selected" : "") + '>No</option>' +
-        '<option value="Follow up"' + (resp === "Follow up" ? " selected" : "") + '>Follow up</option>' +
-        '</select></div>' +
-        '<div class="contact-field"><label>Moving forward</label><select class="contact-moving">' +
-        '<option value="TBD"' + (mf === "TBD" ? " selected" : "") + '>TBD</option>' +
-        '<option value="Yes"' + (mf === "Yes" ? " selected" : "") + '>Yes</option>' +
-        '<option value="No"' + (mf === "No" ? " selected" : "") + '>No</option>' +
-        '<option value="On hold"' + (mf === "On hold" ? " selected" : "") + '>On hold</option>' +
-        '</select></div>' +
-        '<div class="contact-field full"><label>Next steps</label><input type="text" class="contact-next" placeholder="e.g. Send deck by Friday, call next week" value="' + escapeHtml(next) + '" /></div>' +
-        '<button class="small-btn contact-remove" type="button">Remove</button>';
-      row.querySelector(".contact-remove").addEventListener("click", function () { row.remove(); });
-      contactsListEl.appendChild(row);
-    }
-
-    addContactBtn.addEventListener("click", function () { addContactRow({ name: "", title: "", email: "" }); });
-
-    function openModal(mode, inst) {
-      institutionForm.reset();
-      contactsListEl.innerHTML = "";
-      editingInstitutionId = null;
-      if (mode === "add") {
-        modalTitle.textContent = "Add institution";
-        addContactRow({ name: "", title: "", email: "" });
-      } else {
-        modalTitle.textContent = "Edit institution";
-        editingInstitutionId = inst.id;
-        document.getElementById("company-name").value = inst.companyName || "";
-        document.getElementById("company-type").value = inst.companyType || "";
-        document.getElementById("importance").value = inst.importance || "";
-        if (inst.contacts && inst.contacts.length) {
-          inst.contacts.forEach(function (c) { addContactRow(c); });
-        } else {
-          addContactRow({ name: "", title: "", email: "" });
-        }
-      }
-      modal.classList.add("active");
-    }
-
-    function closeModal() {
-      modal.classList.remove("active");
-      editingInstitutionId = null;
-    }
-
-    addInstitutionBtn.addEventListener("click", function () { openModal("add"); });
-    closeModalBtn.addEventListener("click", closeModal);
-    cancelModalBtn.addEventListener("click", closeModal);
-    modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
-
-    institutionForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const project = getActiveProject();
-      if (!project) return;
-      const fd = new FormData(institutionForm);
-      const contacts = [];
-      contactsListEl.querySelectorAll(".contact-row").forEach(function (row) {
-        const n = row.querySelector(".contact-name").value.trim();
-        const t = row.querySelector(".contact-title").value.trim();
-        const em = row.querySelector(".contact-email").value.trim();
-        if (n || t || em) {
-          contacts.push({
-            name: n,
-            title: t,
-            email: em,
-            reachedOut: row.querySelector(".contact-reached").checked,
-            whoReachedOut: row.querySelector(".contact-who").value || "",
-            dateReachedOut: row.querySelector(".contact-date").value || "",
-            response: row.querySelector(".contact-response").value || "Pending",
-            movingForward: row.querySelector(".contact-moving").value || "TBD",
-            nextSteps: row.querySelector(".contact-next").value.trim() || ""
-          });
-        }
-      });
-      const entry = {
-        id: editingInstitutionId || uid(),
-        companyName: (fd.get("companyName") || "").toString().trim(),
-        companyType: (fd.get("companyType") || "").toString(),
-        contacts: contacts,
-        importance: (fd.get("importance") || "").toString()
-      };
-      if (editingInstitutionId) {
-        const existing = project.institutions.find(function (i) { return i.id === editingInstitutionId; });
-        if (existing && existing.reachedOut) entry.reachedOut = true;
-      }
-      if (!project.institutions) project.institutions = [];
-      if (editingInstitutionId) {
-        const idx = project.institutions.findIndex(function (i) { return i.id === editingInstitutionId; });
-        if (idx >= 0) project.institutions[idx] = entry;
-      } else {
-        project.institutions.push(entry);
-      }
-      persistState();
-      closeModal();
-      renderAll();
-    });
-
-    institutionsTbody.addEventListener("click", function (e) {
-      const btn = e.target.closest("button[data-action]");
-      if (!btn) return;
-      const project = getActiveProject();
-      if (!project) return;
-      const instId = btn.dataset.id;
-      const inst = (project.institutions || []).find(function (i) { return i.id === instId; });
-      if (!inst) return;
-      if (btn.dataset.action === "edit") openModal("edit", inst);
-      if (btn.dataset.action === "delete") {
-        if (!confirm("Delete " + (inst.companyName || "this institution") + "?")) return;
-        project.institutions = project.institutions.filter(function (i) { return i.id !== instId; });
-        persistState();
-        renderAll();
-      }
-      if (btn.dataset.action === "toggle-reached") {
-        const anyReached = (inst.contacts || []).some(function (c) { return c.reachedOut; });
-        const newVal = !anyReached;
-        (inst.contacts || []).forEach(function (c) {
-          c.reachedOut = newVal;
-          if (newVal && !c.dateReachedOut) {
-            c.dateReachedOut = new Date().toISOString().slice(0, 10);
-          }
-          if (newVal && !c.whoReachedOut) {
-            const last = localStorage.getItem("crm-last-who");
-            if (last && REPS.indexOf(last) !== -1) c.whoReachedOut = last;
-          }
-        });
-        persistState();
-        renderAll();
-      }
-    });
-
-    /* ---------- Tasks ---------- */
-
-    function openTaskModal(mode, task) {
-      taskForm.reset();
-      editingTaskId = null;
-      if (mode === "add") {
-        taskModalTitle.textContent = "Add task";
-      } else {
-        taskModalTitle.textContent = "Edit task";
-        editingTaskId = task.id;
-        document.getElementById("task-title").value = task.title || "";
-        document.getElementById("task-status").value = task.status || "Pending";
-      }
-      taskModal.classList.add("active");
-    }
-
-    function closeTaskModal() {
-      taskModal.classList.remove("active");
-      editingTaskId = null;
-    }
-
-    addTaskBtn.addEventListener("click", function () { openTaskModal("add"); });
-    closeTaskModalBtn.addEventListener("click", closeTaskModal);
-    cancelTaskModalBtn.addEventListener("click", closeTaskModal);
-    taskModal.addEventListener("click", function (e) { if (e.target === taskModal) closeTaskModal(); });
-
-    taskForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const project = getActiveProject();
-      if (!project) return;
-      const fd = new FormData(taskForm);
-      if (!project.tasks) project.tasks = [];
-      if (editingTaskId) {
-        const t = project.tasks.find(function (x) { return x.id === editingTaskId; });
-        if (t) {
-          t.title = (fd.get("taskTitle") || "").toString().trim();
-          t.status = (fd.get("taskStatus") || "Pending").toString();
-        }
-      } else {
-        project.tasks.push({
-          id: uid(),
-          title: (fd.get("taskTitle") || "").toString().trim(),
-          status: (fd.get("taskStatus") || "Pending").toString()
-        });
-      }
-      persistState();
-      closeTaskModal();
-      renderTasks();
-    });
-
-    tasksListEl.addEventListener("click", function (e) {
-      const btn = e.target.closest("button[data-action]");
-      if (!btn) return;
-      const project = getActiveProject();
-      if (!project || !project.tasks) return;
-      const id = btn.dataset.id;
-      const task = project.tasks.find(function (x) { return x.id === id; });
-      if (!task) return;
-      const action = btn.dataset.action;
-      if (action === "cycle") {
-        const order = ["Pending", "Ongoing", "Completed"];
-        const i = order.indexOf(task.status);
-        task.status = order[(i + 1) % order.length];
-        persistState();
-        renderTasks();
-      }
-      if (action === "edit-task") openTaskModal("edit", task);
-      if (action === "delete-task") {
-        if (!confirm("Delete task \"" + task.title + "\"?")) return;
-        project.tasks = project.tasks.filter(function (x) { return x.id !== id; });
-        persistState();
-        renderTasks();
-      }
-    });
-
-    /* ---------- Search ---------- */
-
-    searchInput.addEventListener("input", function () {
-      searchTerm = searchInput.value.trim().toLowerCase();
-      renderContent();
-    });
-
-    outreachFilterEl.addEventListener("change", function () {
-      outreachFilter = outreachFilterEl.value;
-      renderContent();
-    });
-
-    /* ---------- Export / Import ---------- */
-
-    exportJsonBtn.addEventListener("click", function () {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      downloadBlob(blob, "hartmann-crm-backup.json");
-    });
-
-    exportCsvBtn.addEventListener("click", function () {
-      const project = getActiveProject();
-      if (!project) return;
-      const headers = ["Company", "Type", "Importance", "Contact Name", "Contact Title", "Contact Email", "Reached Out", "Who Reached Out", "Date Reached Out", "Response", "Moving Forward", "Next Steps"];
-      const rows = [headers];
-      (project.institutions || []).forEach(function (inst) {
-        const base = [inst.companyName || "", inst.companyType || "", inst.importance || ""];
-        if (inst.contacts && inst.contacts.length) {
-          inst.contacts.forEach(function (c) {
-            rows.push(base.concat([
-              c.name || "", c.title || "", c.email || "",
-              c.reachedOut ? "Yes" : "No",
-              c.whoReachedOut || "", c.dateReachedOut || "",
-              c.response || "Pending", c.movingForward || "TBD",
-              (c.nextSteps || "").replace(/\n/g, " ")
-            ]));
-          });
-        } else {
-          rows.push(base.concat(["", "", "", "No", "", "", "Pending", "TBD", ""]));
-        }
-      });
-      const csv = rows.map(function (r) {
-        return r.map(function (cell) { return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
-      }).join("\n");
-      downloadBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), project.name + "-contacts.csv");
-    });
-
-    function downloadBlob(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    }
-
-    /* ---------- CSV Import ---------- */
-
-    function parseCsv(text) {
-      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-      const rows = [];
-      let row = [], field = "", inQuotes = false;
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (inQuotes) {
-          if (ch === '"') {
-            if (text[i + 1] === '"') { field += '"'; i++; }
-            else inQuotes = false;
-          } else {
-            field += ch;
-          }
-        } else {
-          if (ch === '"') inQuotes = true;
-          else if (ch === ",") { row.push(field); field = ""; }
-          else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
-          else if (ch === "\r") { /* skip, handled by \n */ }
-          else field += ch;
-        }
-      }
-      if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-      return rows.filter(function (r) { return r.some(function (c) { return c.trim() !== ""; }); });
-    }
-
-    function normalizeHeader(h) {
-      return String(h).toLowerCase().trim().replace(/\s+/g, " ");
-    }
-
-    function matchColumn(headers, synonyms) {
-      for (let i = 0; i < headers.length; i++) {
-        const h = normalizeHeader(headers[i]);
-        if (synonyms.indexOf(h) !== -1) return i;
-      }
-      return -1;
-    }
-
-    function parseContactBlock(block) {
-      const out = [];
-      if (!block) return out;
-      const parts = String(block).split(/[;|]+/);
-      for (const part of parts) {
-        const t = part.trim();
-        if (!t) continue;
-        const angle = /^\s*(.*?)\s*<\s*([^>]*)\s*>\s*$/.exec(t);
-        if (angle && angle[2]) {
-          const label = angle[1].trim();
-          const dash = label.lastIndexOf(" - ");
-          const name = dash > -1 ? label.slice(0, dash).trim() : label;
-          const title = dash > -1 ? label.slice(dash + 3).trim() : "";
-          out.push({ name: name, title: title, email: angle[2] });
-          continue;
-        }
-        const emailMatch = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.exec(t);
-        if (emailMatch) {
-          const rest = t.replace(emailMatch[0], "").trim().replace(/^[-_ ]|[-_ ]$/g, "");
-          const dash = rest.lastIndexOf(" - ");
-          const name = dash > -1 ? rest.slice(0, dash).trim() : rest;
-          const title = dash > -1 ? rest.slice(dash + 3).trim() : "";
-          out.push({ name: name, title: title, email: emailMatch[0] });
-          continue;
-        }
-        out.push({ name: t, title: "", email: "" });
-      }
-      return out;
-    }
-
-    function contactKey(c) {
-      const e = String(c.email || "").trim().toLowerCase();
-      const n = String(c.name || "").trim().toLowerCase();
-      return (e || n || "x" + Math.random()).replace(/\s+/g, "");
-    }
-
-    function mergeContact(inst, contact) {
-      if (!inst.contacts) inst.contacts = [];
-      const c = { 
-        name: String(contact.name || "").trim(), 
-        title: String(contact.title || "").trim(), 
-        email: String(contact.email || "").trim(),
-        reachedOut: contact.reachedOut || false,
-        whoReachedOut: contact.whoReachedOut || "",
-        dateReachedOut: contact.dateReachedOut || "",
-        response: contact.response || "Pending",
-        movingForward: contact.movingForward || "TBD",
-        nextSteps: contact.nextSteps || ""
-      };
-      if (!c.name && !c.email) return false;
-      const key = contactKey(c);
-      const existingIdx = inst.contacts.findIndex(function (x) { return contactKey(x) === key; });
-      if (existingIdx >= 0) {
-        // Update outreach fields if provided
-        const existing = inst.contacts[existingIdx];
-        if (contact.reachedOut !== undefined) existing.reachedOut = contact.reachedOut;
-        if (contact.whoReachedOut) existing.whoReachedOut = contact.whoReachedOut;
-        if (contact.dateReachedOut) existing.dateReachedOut = contact.dateReachedOut;
-        if (contact.response) existing.response = contact.response;
-        if (contact.movingForward) existing.movingForward = contact.movingForward;
-        if (contact.nextSteps) existing.nextSteps = contact.nextSteps;
-        return false;
-      }
-      inst.contacts.push(c);
-      return true;
-    }
-
-    function findOrCreateInstitution(project, name) {
-      const trimmed = String(name || "").trim();
-      const low = trimmed.toLowerCase();
-      let inst = (project.institutions || []).find(function (i) {
-        return String(i.companyName || "").trim().toLowerCase() === low;
-      });
-      if (inst) return inst;
-      inst = { id: uid(), companyName: trimmed, companyType: "", contacts: [], importance: "", _justCreated: true };
-      if (!project.institutions) project.institutions = [];
-      project.institutions.push(inst);
-      return inst;
-    }
-
-    importCsvInput.addEventListener("change", function () {
-      const file = importCsvInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function () {
-        try {
-          const rows = parseCsv(reader.result);
-          if (rows.length < 2) { alert("CSV file seems empty."); return; }
-          const headers = rows[0].map(function (h, i) { return String(h || ("col" + i)).trim(); });
-
-          // New format (per-contact rows): Company, Type, Importance, Contact Name, Contact Title, Contact Email, Reached Out, Who Reached Out, Date Reached Out, Response, Moving Forward, Next Steps
-          const nameCol = matchColumn(headers, ["company", "company name", "institution", "institution name", "name", "organisation", "organization", "org", "entity", "financial institution"]);
-          const typeCol = matchColumn(headers, ["type", "company type", "entity type", "kind", "category", "institution type"]);
-          const importanceCol = matchColumn(headers, ["importance", "priority", "important"]);
-          const cNameCol = matchColumn(headers, ["contact name", "contact full name", "full name", "contact person", "person name", "person", "name of contact", "nome"]);
-          const cTitleCol = matchColumn(headers, ["contact title", "title", "job title", "role", "position", "cargo", "function", "funcao", "designation"]);
-          const cEmailCol = matchColumn(headers, ["contact email", "email", "e-mail", "e mail", "email address", "contact e-mail", "mail", "correo"]);
-          const cReachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
-          const cWhoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
-          const cDateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
-          const cRespCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
-          const cMovingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
-          const cNextCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
-
-          // Old format fallback columns
-          const oldWhoCol = matchColumn(headers, ["who reached out", "who", "reached out", "contacted by", "rep", "owner", "who contacted", "responsable"]);
-          const oldDateCol = matchColumn(headers, ["date reached out", "date", "outreach date", "date contacted", "reached out date", "data"]);
-          const oldRespCol = matchColumn(headers, ["response", "reply", "answer", "responded", "resposta"]);
-          const oldMovingCol = matchColumn(headers, ["moving forward", "move forward", "forward", "next move", "interest", "moving"]);
-          const oldNextCol = matchColumn(headers, ["next steps", "next step", "next action", "follow up", "action items", "proximos passos"]);
-          const oldReachedCol = matchColumn(headers, ["reached out", "outreach", "contacted", "reached", "outreach status"]);
-          const contactBlockCol = matchColumn(headers, ["contacts", "contact", "contact info", "contact information", "contacts info", "contact block"]);
-
-          if (nameCol === -1) { alert("Could not find an institution/company name column. Headers found: " + headers.join(", ")); return; }
-
-          let project = getActiveProject();
-          if (!project) {
-            const base = (file.name || "Imported").replace(/\.csv$/i, "").replace(/\.xlsx$/i, "").trim() || "Imported project";
-            project = { id: uid(), name: base, institutions: [], tasks: [] };
-            state.projects.push(project);
-          }
-          activeProjectId = project.id;
-          state.activeProjectId = activeProjectId;
-
-          let created = 0, mergedContacts = 0, skipped = 0;
-          for (let r = 1; r < rows.length; r++) {
-            const rowv = rows[r];
-            const get = function (col) { return col >= 0 && col < rowv.length ? String(rowv[col] || "").trim() : ""; };
-            const name = get(nameCol);
-            if (!name) { skipped++; continue; }
-            const inst = findOrCreateInstitution(project, name);
-            const isNew = inst._justCreated;
-            if (isNew) created++;
-            inst._justCreated = false;
-            if (typeCol >= 0) inst.companyType = get(typeCol);
-            if (importanceCol >= 0) inst.importance = get(importanceCol);
-
-            // New format: per-contact outreach columns present
-            const hasNewContactCols = cNameCol >= 0 || cEmailCol >= 0;
-            const hasNewOutreachCols = cReachedCol >= 0 || cWhoCol >= 0 || cDateCol >= 0 || cRespCol >= 0 || cMovingCol >= 0 || cNextCol >= 0;
-
-            if (hasNewContactCols && (get(cNameCol) || get(cEmailCol))) {
-              const contact = {
-                name: get(cNameCol),
-                title: get(cTitleCol),
-                email: get(cEmailCol),
-                reachedOut: cReachedCol >= 0 ? (get(cReachedCol).toLowerCase() === "yes" || get(cReachedCol).toLowerCase() === "y" || get(cReachedCol).toLowerCase() === "true" || get(cReachedCol) === "1") : false,
-                whoReachedOut: get(cWhoCol),
-                dateReachedOut: get(cDateCol),
-                response: get(cRespCol) || "Pending",
-                movingForward: get(cMovingCol) || "TBD",
-                nextSteps: get(cNextCol)
-              };
-              if (mergeContact(inst, contact)) mergedContacts++;
-            } else if (contactBlockCol >= 0) {
-              // Old format: contacts in a single block
-              const list = parseContactBlock(get(contactBlockCol));
-              for (const c of list) if (mergeContact(inst, c)) mergedContacts++;
-            } else if (cNameCol >= 0 || cEmailCol >= 0) {
-              // New format with separate contact columns but no outreach cols
-              const contact = { name: get(cNameCol), title: get(cTitleCol), email: get(cEmailCol) };
-              if (mergeContact(inst, contact)) mergedContacts++;
-            }
-
-            // Old format: institution-level outreach (apply to first contact or create a default contact)
-            if (!hasNewOutreachCols && (oldReachedCol >= 0 || oldWhoCol >= 0 || oldDateCol >= 0 || oldRespCol >= 0 || oldMovingCol >= 0 || oldNextCol >= 0)) {
-              // Apply to first contact or create a placeholder
-              if (inst.contacts && inst.contacts.length === 0) {
-                inst.contacts.push({ name: "", title: "", email: "" });
-              }
-              if (inst.contacts && inst.contacts.length > 0) {
-                const c = inst.contacts[0];
-                if (oldReachedCol >= 0) {
-                  const rv = get(oldReachedCol).toLowerCase();
-                  c.reachedOut = rv === "yes" || rv === "y" || rv === "true" || rv === "1" || rv === "done" || rv === "sim" || rv === "ja";
-                }
-                if (oldWhoCol >= 0) c.whoReachedOut = get(oldWhoCol);
-                if (oldDateCol >= 0) c.dateReachedOut = get(oldDateCol);
-                if (oldRespCol >= 0) c.response = get(oldRespCol) || "Pending";
-                if (oldMovingCol >= 0) c.movingForward = get(oldMovingCol) || "TBD";
-                if (oldNextCol >= 0) c.nextSteps = get(oldNextCol);
-              }
-            }
-          }
-
-          persistState();
-          renderAll();
-          alert("CSV import complete.\n\nInstitutions: " + created + " new\nContacts added/merged: " + mergedContacts + "\nRows skipped (no name): " + skipped);
-        } catch (err) {
-          alert("Could not import CSV: " + err.message);
-        }
-        importCsvInput.value = "";
-      };
-      reader.readAsText(file);
-    });
-
-    importJsonInput.addEventListener("change", function () {
-      const file = importJsonInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function () {
-        try {
-          const imported = JSON.parse(reader.result);
-          if (!imported || !Array.isArray(imported.projects)) {
-            alert("Invalid backup file.");
-            return;
-          }
-          const mode = prompt("Import mode: type REPLACE (overwrite everything) or MERGE (add to existing):");
-          if (!mode) { importJsonInput.value = ""; return; }
-          const m = mode.trim().toUpperCase();
-          if (m === "REPLACE") {
-            state = { projects: imported.projects, activeProjectId: imported.projects.length ? imported.projects[0].id : null };
-          } else if (m === "MERGE") {
-            imported.projects.forEach(function (ip) {
-              const existing = state.projects.find(function (p) { return p.name === ip.name; });
-              if (existing) {
-                existing.institutions = (existing.institutions || []).concat(ip.institutions || []);
-                existing.tasks = (existing.tasks || []).concat(ip.tasks || []);
-              } else {
-                state.projects.push(ip);
-              }
-            });
-          } else {
-            alert("Unknown mode. Type REPLACE or MERGE.");
-            importJsonInput.value = "";
-            return;
-          }
-          activeProjectId = state.projects.length ? state.projects[0].id : null;
-          state.activeProjectId = activeProjectId;
-          persistState();
-          renderAll();
-          alert("Import complete.");
-        } catch (err) {
-          alert("Could not read file: " + err.message);
-        }
-        importJsonInput.value = "";
-      };
-      reader.readAsText(file);
-    });
-
-    /* ---------- Reload from GitHub ---------- */
-
-    reloadBtn.addEventListener("click", function () {
-      if (lastSavedHash !== null && hashState() !== lastSavedHash) {
-        if (!confirm("You have unsaved local changes. Reload anyway and discard them?")) return;
-      }
-      setStatus("saving", "Loading...");
-      loadFromGithub()
-        .then(function (loaded) {
-          state = loaded;
-          activeProjectId = state.activeProjectId || null;
-          searchTerm = "";
-          searchInput.value = "";
-          lastSavedHash = hashState();
-          clearTimeout(saveTimer); needsSave = false;
-          setStatus("saved", "Loaded from GitHub - " + new Date().toLocaleTimeString());
-          renderAll();
-        })
-        .catch(function (err) {
-          setStatus("error", "Error loading - " + (err.message || "unknown"));
-        });
-    });
-
-    /* ---------- Keyboard ---------- */
-
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        closeModal();
-        closeTaskModal();
-      }
-    });
-
-    /* ---------- Init ---------- */
-
-    themeToggle.addEventListener("click", toggleTheme);
-    initTheme();
-    setStatus("saving", "Loading from GitHub...");
-    loadFromGithub()
-      .then(function (loaded) {
-        state = loaded;
-        activeProjectId = state.activeProjectId || null;
-        lastSavedHash = hashState();
-        setStatus("saved", "Loaded from GitHub - " + new Date().toLocaleTimeString());
-        renderAll();
-      })
-      .catch(function (err) {
-        setStatus("error", "Error loading - " + (err.message || "unknown"));
-        renderAll();
-      });
-  </script>
+</div>
+
+<div id="access-overlay" class="overlay hidden">
+  <div class="card-dialog">
+    <h2>Open your private access link</h2>
+    <p>This device does not have a valid access key. Open the private link you were given to enter the CRM. If your key was revoked, ask for a new link.</p>
+  </div>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<script src="config.js"></script>
+<script src="util.js"></script>
+<script src="migration.js"></script>
+<script src="persistence.js"></script>
+<script src="views.js"></script>
+<script src="modals.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
