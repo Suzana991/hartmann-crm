@@ -2741,9 +2741,9 @@
         {
           "id": "mv045ooz7bse3j",
           "investorId": "muyt073t551gyl",
-          "stage": "in_discussion",
+          "stage": "not_contacted",
           "priority": "High",
-          "owner": "Both",
+          "owner": "",
           "contactIds": [],
           "notes": "",
           "archived": false,
@@ -4152,7 +4152,7 @@
       "reviewFlags": []
     }
   ],
-  "activeProjectId": "muysm8sbcsf8rj",
+  "activeProjectId": "mv04627xeqhrns",
   "migrationReport": {
     "schemaVersion": 2,
     "migratedAt": "2026-10-08T22:34:06.274Z",
