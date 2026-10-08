@@ -12,7 +12,9 @@ window.Modals = (function () {
     submitCallback = onSubmit;
     backdrop().classList.remove("hidden");
     const first = document.querySelector("#modal-body input:not([type=hidden]), #modal-body select, #modal-body textarea");
-    if (first) setTimeout(function () { first.focus(); }, 30);
+    if (first) {
+      try { first.focus(); } catch (e) { }
+    }
   }
 
   function close() {
@@ -96,7 +98,6 @@ window.Modals = (function () {
       App.commitInvestor(editing ? investor.id : null, result);
     });
   }
-
   function contactModal(investor, contact) {
     const editing = !!contact;
     const c = contact || { name: "", title: "", email: "", phone: "", notes: "", isPrimary: false };

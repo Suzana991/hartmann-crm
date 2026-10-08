@@ -151,15 +151,25 @@ window.App = (function () {
     render();
   }
 
-  function showLogin(message) {
-    el("login-error").textContent = message || "";
-    el("login-overlay").classList.remove("hidden");
-    setTimeout(function () { el("login-token").focus(); }, 30);
+  function acquireTokenFromLink() {
+    const hash = window.location.hash || "";
+    if (!hash) return;
+    const match = /(?:^|[#&])key=([^&]*)/.exec(hash);
+    if (!match) return;
+    let key = "";
+    try { key = decodeURIComponent(match[1] || "").trim(); }
+    catch (e) { key = (match[1] || "").trim(); }
+    if (key) Store.setToken(key);
+    try { history.replaceState(null, "", window.location.pathname + window.location.search); }
+    catch (e) { window.location.hash = ""; }
   }
 
-  function hideLogin() {
-    el("login-overlay").classList.add("hidden");
-    el("login-token").value = "";
+  function showAccess() {
+    el("access-overlay").classList.remove("hidden");
+  }
+
+  function hideAccess() {
+    el("access-overlay").classList.add("hidden");
   }
 
   function showFatal(title, text) {
@@ -195,10 +205,11 @@ window.App = (function () {
       return;
     }
     if (!Store.hasToken()) {
-      setStatus("", "Not signed in");
-      showLogin();
+      setStatus("", "No access key");
+      showAccess();
       return;
     }
+    hideAccess();
     hideFatal();
     setStatus("saving", "Loading…");
     try {
@@ -226,7 +237,7 @@ window.App = (function () {
     } catch (e) {
       if (e.code === "unauthorized") {
         setStatus("", "Access key rejected");
-        showLogin("That access key was not accepted.");
+        showAccess();
         return;
       }
       if (e.code === "unsupported-version" || e.code === "unrecognized-data" || e.code === "invalid-data") {
@@ -396,21 +407,6 @@ window.App = (function () {
       try { localStorage.setItem("hartmann-crm-theme", isLight ? "light" : "dark"); } catch (e) { }
     },
     "toggle-menu": function () { el("menu").classList.toggle("hidden"); },
-    "logout": function () {
-      Store.clearToken();
-      el("menu").classList.add("hidden");
-      showLogin("Signed out.");
-    },
-    "login": function () {
-      const value = el("login-token").value.trim();
-      if (!value) {
-        el("login-error").textContent = "Enter your access key.";
-        return;
-      }
-      Store.setToken(value);
-      hideLogin();
-      bootstrap();
-    },
     "conflict-reload": function () {
       const payload = actions._conflictPayload;
       hideConflict();
@@ -777,17 +773,12 @@ window.App = (function () {
 
   function wireEvents() {
     document.addEventListener("click", function (event) {
-      const loginTarget = event.target.closest("[data-action]");
-      if (loginTarget) {
-        const name = loginTarget.dataset.action;
-        if (name === "login") {
-          actions.login();
-          event.preventDefault();
-          return;
-        }
+      const actionTarget = event.target.closest("[data-action]");
+      if (actionTarget) {
+        const name = actionTarget.dataset.action;
         if (actions[name] && name.charAt(0) !== "_") {
           event.preventDefault();
-          actions[name](loginTarget.dataset, event);
+          actions[name](actionTarget.dataset, event);
           return;
         }
       }
@@ -797,7 +788,6 @@ window.App = (function () {
         !event.target.closest("#menu-btn")) {
         menu.classList.add("hidden");
       }
-      if (event.target.id === "login-btn") actions.login();
     });
 
     document.addEventListener("change", function (event) {
@@ -847,10 +837,6 @@ window.App = (function () {
         if (!el("detail-drawer").classList.contains("hidden")) { closeDetail(); return; }
         if (!el("menu").classList.contains("hidden")) el("menu").classList.add("hidden");
       }
-      if (event.key === "Enter" && event.target && event.target.id === "login-token") {
-        event.preventDefault();
-        actions.login();
-      }
     });
 
     el("modal-form").addEventListener("submit", Modals.handleSubmit);
@@ -889,10 +875,11 @@ window.App = (function () {
 
   function init() {
     initTheme();
+    acquireTokenFromLink();
     Store.init({
       getState: function () { return state; },
       onStatus: setStatus,
-      onUnauthorized: function () { showLogin("Your session ended. Sign in again."); },
+      onUnauthorized: function () { setStatus("", "Access key rejected"); showAccess(); },
       onConflict: function (payload) {
         actions._conflictPayload = payload;
         showConflict(payload);

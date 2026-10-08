@@ -32,20 +32,27 @@ Create a **fine-grained** personal access token (Settings → Developer settings
 
 This token can only touch this one repository's file contents. The Worker additionally pins it to branch `data`, path `data.json`.
 
-## 3. Team access keys
+## 3. Team access keys (private links)
 
-Each approved team member gets their own access key (never share one key between people):
+Each approved team member gets their own access key and a private access link built from it (never share one key or link between people):
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 ```
 
-Run once per member. Keys are stored in the Worker secret `AUTH_TOKENS` as a comma-separated list. The Worker compares SHA-256 hashes of presented keys, so keys are never logged or returned.
+Run once per member, then form that person's private link (send through a secure channel, never over a channel that logs URLs):
 
-- **Add a member**: re-run `npx wrangler secret put AUTH_TOKENS` with the full comma-separated list including the new key, then send the new key to that person through a secure channel.
-- **Revoke a member**: re-run `npx wrangler secret put AUTH_TOKENS` with the list minus their key. Access stops immediately.
+```
+https://suzana991.github.io/hartmann-crm/#key=<their key>
+```
 
-Members paste their key into the app's sign-in screen. The key is kept only in that browser tab's `sessionStorage`, so closing the tab signs them out.
+The key travels in the URL **fragment** (after `#`), so it never reaches any server in the URL. On first open the app stores the key on that device (`localStorage`), removes it from the visible URL, and loads the CRM. Later visits to the same device open the CRM directly — there is no login, registration, or user-management screen in the app. A missing or invalid key shows the message "Open your private access link".
+
+Keys are stored in the Worker secret `AUTH_TOKENS` as a comma-separated list. The Worker compares SHA-256 hashes of presented keys, so keys are never logged or returned. Each key works independently:
+
+- **Add a member**: generate a key, re-run `npx wrangler secret put AUTH_TOKENS` with the full comma-separated list including the new key, build their private link, and send it through a secure channel.
+- **Revoke a member**: re-run `npx wrangler secret put AUTH_TOKENS` with the list minus their key. Access stops immediately for that person only; their device shows "Open your private access link" until they receive a new link. Other members are unaffected.
+- Never print keys or links in deployment logs, shell transcripts, or commits. Read them from a local file and pipe the value into wrangler (for example: `$list = Get-Content $env:TEMP\hartmann-team-keys.txt -Raw; $list | npx wrangler secret put AUTH_TOKENS`).
 
 ## 4. Deploy the backend
 
@@ -158,7 +165,13 @@ node server/src/dev-server.js   # in one shell
 node tests\browser-check.mjs    # in another; writes screenshots to %TEMP%\crm-shots
 ```
 
-The browser suite covers: login, legacy migration, tracker/directory/detail rendering, contact display fallback, create investor/contact/engagement/activity/task, reload persistence, export, failed-save + retry, wrong-key rejection, and a two-session 409 conflict.
+The browser suite covers: first access through a private link (key stripped from URL), legacy migration, tracker/directory/detail rendering, contact display fallback, create investor/contact/engagement/activity/task, reload persistence, export, failed-save + retry, invalid-key rejection with the access-link message, and a two-session 409 conflict.
+
+Access-link suite (first access, returning visits, invalid/missing keys, per-key revocation — keys supplied via `CRM_KEY1`/`CRM_KEY2` env read from the local key file, `CRM_PHASE=1|2`):
+
+```powershell
+node tests\access-link-check.mjs
+```
 
 ## 11. Recovery
 

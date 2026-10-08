@@ -3,7 +3,7 @@ window.Store = (function () {
 
   const TOKEN_KEY = "hartmann-crm-access-key";
   let token = "";
-  try { token = sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { token = ""; }
+  try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { token = ""; }
   const rawBase = (window.CRM_CONFIG && window.CRM_CONFIG.apiBase) ? String(window.CRM_CONFIG.apiBase) : "";
   const apiBase = rawBase.replace(/\/+$/, "");
   let sha = null;
@@ -35,8 +35,8 @@ window.Store = (function () {
   function setToken(value) {
     token = String(value || "").trim();
     try {
-      if (token) sessionStorage.setItem(TOKEN_KEY, token);
-      else sessionStorage.removeItem(TOKEN_KEY);
+      if (token) localStorage.setItem(TOKEN_KEY, token);
+      else localStorage.removeItem(TOKEN_KEY);
     } catch (e) { }
   }
 
@@ -46,7 +46,7 @@ window.Store = (function () {
 
   async function request(method, path, body) {
     if (!apiBase) throw makeError("not-configured", "Backend address is not configured (set apiBase in config.js).");
-    if (!token) throw makeError("unauthorized", "Not signed in.");
+    if (!token) throw makeError("unauthorized", "No access key on this device.");
     let res;
     try {
       const headers = { "Authorization": "Bearer " + token };
@@ -59,7 +59,10 @@ window.Store = (function () {
     } catch (e) {
       throw makeError("network", "Cannot reach the backend. Check your connection or the backend address.");
     }
-    if (res.status === 401) throw makeError("unauthorized", "Access key rejected.");
+    if (res.status === 401) {
+      try { await res.text(); } catch (e) { }
+      throw makeError("unauthorized", "Access key rejected.");
+    }
     let payload = null;
     try { payload = await res.json(); } catch (e) { payload = null; }
     if (!res.ok) {
@@ -117,7 +120,7 @@ window.Store = (function () {
       }
     } catch (e) {
       if (e.code === "unauthorized") {
-        emitStatus("error", "Session ended — sign in again");
+        emitStatus("error", "Access key rejected — open your private link again");
         if (ctx.onUnauthorized) ctx.onUnauthorized();
       } else if (e.status === 409) {
         emitStatus("saving", "Save conflict");

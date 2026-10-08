@@ -194,8 +194,6 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 .card-dialog h2{margin:0 0 8px;font-size:17px}
 .card-dialog p{color:var(--muted);font-size:13px;margin:0 0 16px}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-#login-error{color:var(--danger);font-size:12.5px;min-height:16px;margin:0 0 6px}
-.login-hint{font-size:12px;color:var(--muted);margin-top:12px}
 
 .toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:340px}
 .toast{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--info);border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s}
@@ -263,7 +261,6 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
           <button data-action="export-json">Export JSON backup</button>
           <button data-action="export-csv">Export CSV</button>
           <button data-action="toggle-theme"><span id="theme-toggle-label-menu">Toggle theme</span></button>
-          <button data-action="logout">Sign out</button>
         </div>
       </div>
     </header>
@@ -324,18 +321,10 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
   </div>
 </div>
 
-<div id="login-overlay" class="overlay hidden">
+<div id="access-overlay" class="overlay hidden">
   <div class="card-dialog">
-    <h2>Hartmann Outreach Tracker</h2>
-    <p>Enter your personal access key to open the CRM data.</p>
-    <div id="login-error"></div>
-    <label class="field wide">Access key
-      <input type="password" id="login-token" autocomplete="current-password" placeholder="paste your access key" />
-    </label>
-    <div class="dialog-actions" style="margin-top:16px">
-      <button class="primary-btn" id="login-btn" data-action="login">Sign in</button>
-    </div>
-    <div class="login-hint">Keys are managed per team member and can be revoked at any time.</div>
+    <h2>Open your private access link</h2>
+    <p>This device does not have a valid access key. Open the private link you were given to enter the CRM. If your key was revoked, ask for a new link.</p>
   </div>
 </div>
 

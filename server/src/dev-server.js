@@ -137,7 +137,7 @@ const server = http.createServer(async function (req, res) {
 
 server.listen(PORT, "127.0.0.1", function () {
   console.log("[dev] Hartmann CRM dev server on http://127.0.0.1:" + PORT);
-  console.log("[dev] access key:", DEV_TOKEN);
+  console.log("[dev] auth keys configured: " + String(DEV_TOKEN || "").split(",").filter(Boolean).length + " (values not logged)");
   console.log("[dev] data file:", DATA_FILE);
   console.log("[dev] reset data with: DEV_RESET=1 node server/src/dev-server.js");
 });

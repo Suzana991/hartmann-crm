@@ -6,7 +6,7 @@ const require = createRequire(path.join(process.env.TEMP || process.env.HOME || 
 const { chromium } = require("playwright-core");
 
 const BASE = "http://127.0.0.1:8788";
-const TOKEN = "dev-token";
+const TOKEN = process.env.CRM_TOKEN || "dev-token";
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const SHOTS = path.join(process.env.TEMP || ".", "crm-shots");
 fs.mkdirSync(SHOTS, { recursive: true });
@@ -67,10 +67,7 @@ async function waitSaved(page) {
 }
 
 async function login(page, token) {
-  await page.goto(BASE + "/", { waitUntil: "networkidle" });
-  await page.waitForSelector("#login-overlay:not(.hidden)", { timeout: 8000 });
-  await page.fill("#login-token", token);
-  await page.click("#login-btn");
+  await page.goto(BASE + "/#key=" + token, { waitUntil: "networkidle" });
 }
 
 async function waitReady(page) {
@@ -78,7 +75,7 @@ async function waitReady(page) {
   await page.waitForFunction(() => {
     const t = document.getElementById("save-status-text");
     return t && /^(Saved|Loaded)/.test(t.textContent);
-  }, { timeout: 15000 });
+  }, null, { timeout: 15000 });
 }
 
 async function main() {
@@ -89,9 +86,10 @@ async function main() {
   watch(page);
   page.on("dialog", (d) => d.accept().catch(() => {}));
 
-  console.log("--- login + legacy migration ---");
+  console.log("--- first access via private link + legacy migration ---");
   await login(page, TOKEN);
   await waitReady(page);
+  check("access key stripped from URL after first open", page.url().indexOf("#") === -1, page.url());
   let putCount = 0;
   await page.route("**/api/data", async (route) => {
     if (route.request().method() === "PUT") putCount++;
@@ -186,7 +184,7 @@ async function main() {
   await page.click("#modal-submit");
   await page.waitForFunction(() => document.querySelector("#detail-body .activity-summary") &&
     document.querySelector("#detail-body .activity-summary").textContent.indexOf("Browser test outreach call") !== -1,
-    { timeout: 5000 });
+    null, { timeout: 5000 });
   check("activity logged into timeline", true);
   await shot(page, "06-activity-logged");
   await page.click("#detail-close");
@@ -199,7 +197,7 @@ async function main() {
   const putsBeforeTask = putCount;
   await page.click("#modal-submit");
   await page.waitForFunction(() => Array.from(document.querySelectorAll(".task-title"))
-    .some((el) => el.textContent.indexOf("Browser test task") !== -1), { timeout: 5000 });
+    .some((el) => el.textContent.indexOf("Browser test task") !== -1), null, { timeout: 5000 });
   check("task created", true);
   await waitFor(() => putCount >= putsBeforeTask + 1, 8000, "task PUT to reach server");
   await waitSaved(page);
@@ -209,7 +207,7 @@ async function main() {
   await page.unroute("**/api/data");
   await page.reload({ waitUntil: "networkidle" });
   await waitReady(page);
-  check("no re-login needed after reload", await page.isHidden("#login-overlay"));
+  check("no re-login needed after reload", await page.isHidden("#access-overlay"));
   await page.click('[data-nav="directory"]');
   await page.fill("#view-directory .input-search", "Browser Test Capital");
   await page.waitForTimeout(250);
@@ -240,12 +238,12 @@ async function main() {
   await page.waitForFunction(() => {
     const t = document.getElementById("save-status-text");
     return t && t.textContent.indexOf("Save failed") !== -1;
-  }, { timeout: 8000 });
+  }, null, { timeout: 8000 });
   check("failed save surfaces in status", true);
   await shot(page, "08-save-failed");
   await page.unroute("**/api/data");
   await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent),
-    { timeout: 25000 });
+    null, { timeout: 25000 });
   check("automatic retry recovers after outage", true);
   if (await page.isVisible("#detail-drawer")) await page.click("#detail-close");
 
@@ -254,17 +252,16 @@ async function main() {
   const pageBad = await ctxBad.newPage();
   watch(pageBad);
   await login(pageBad, "wrong-token");
-  await pageBad.waitForFunction(() => {
-    const e = document.getElementById("login-error");
-    return e && e.textContent.length > 0;
-  }, { timeout: 8000 });
-  const errText = await pageBad.textContent("#login-error");
-  check("wrong access key rejected with message", errText.indexOf("not accepted") !== -1, errText);
+  await pageBad.waitForSelector("#access-overlay:not(.hidden)", { timeout: 8000 });
+  const errText = await pageBad.textContent("#access-overlay");
+  check("invalid key shows access-link message", errText.indexOf("Open your private access link") !== -1, errText);
+  check("no login form exists", (await pageBad.locator("#login-token").count()) === 0);
+  check("invalid key stripped from URL", pageBad.url().indexOf("#") === -1, pageBad.url());
   await shot(pageBad, "09-unauthorized");
   await ctxBad.close();
 
   console.log("--- concurrent edit conflict ---");
-  await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent), { timeout: 10000 });
+  await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent), null, { timeout: 10000 });
   const ctxB = await browser.newContext({ viewport: { width: 1200, height: 800 } });
   const pageB = await ctxB.newPage();
   watch(pageB);
@@ -277,7 +274,7 @@ async function main() {
   await pageB.fill('#modal-body input[name="name"]', "Concurrent B Fund");
   await pageB.click("#modal-submit");
   await pageB.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent),
-    { timeout: 10000 });
+    null, { timeout: 10000 });
 
   await page.click('[data-nav="directory"]');
   await page.click("#primary-action-btn");
@@ -291,14 +288,14 @@ async function main() {
   await shot(page, "10-conflict");
   await page.click("#conflict-overwrite");
   await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent),
-    { timeout: 10000 });
+    null, { timeout: 10000 });
   check("explicit overwrite resolves conflict", true);
-  const finalData = await page.evaluate(async () => {
+  const finalData = await page.evaluate(async (token) => {
     const res = await fetch("http://127.0.0.1:8788/api/data", {
-      headers: { Authorization: "Bearer dev-token" }
+      headers: { Authorization: "Bearer " + token }
     });
     return res.json();
-  });
+  }, TOKEN);
   const names = finalData.data.investors.map((i) => i.name);
   check("winning write stored", names.indexOf("Concurrent A Fund") !== -1, names.join(","));
   check("losing write not silently merged", names.indexOf("Concurrent B Fund") === -1, names.join(","));
