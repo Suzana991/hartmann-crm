@@ -11,15 +11,17 @@
           "contacts": [
             {
               "name": "Alessio Togni",
-              "email": "Alessio.Togni@bancaifis.it"
+              "title": "",
+              "email": "Alessio.Togni@bancaifis.it",
+              "reachedOut": true,
+              "whoReachedOut": "Both",
+              "dateReachedOut": "2026-10-07",
+              "response": "Yes",
+              "movingForward": "TBD",
+              "nextSteps": ""
             }
           ],
           "importance": "High",
-          "whoReachedOut": "Both",
-          "dateReachedOut": "2026-10-07",
-          "response": "Follow up",
-          "movingForward": "Yes",
-          "nextSteps": "We need to send Investment materials asap",
           "reachedOut": true
         },
         {
