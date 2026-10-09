@@ -4125,7 +4125,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "due_diligence",
+      "deliveryStage": "materials_preparation",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4142,6 +4142,14 @@
           "id": "mv15f1hofd5809",
           "from": "onboarding",
           "to": "due_diligence",
+          "date": "2026-10-09",
+          "by": "",
+          "note": ""
+        },
+        {
+          "id": "mv15fdlrm1f4ex",
+          "from": "due_diligence",
+          "to": "materials_preparation",
           "date": "2026-10-09",
           "by": "",
           "note": ""
