@@ -4125,7 +4125,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "closing",
+      "deliveryStage": "onboarding",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4174,6 +4174,14 @@
           "id": "mv15frgt3fefby",
           "from": "negotiation_structuring",
           "to": "closing",
+          "date": "2026-10-09",
+          "by": "",
+          "note": ""
+        },
+        {
+          "id": "mv17uw5gmw034c",
+          "from": "closing",
+          "to": "onboarding",
           "date": "2026-10-09",
           "by": "",
           "note": ""
