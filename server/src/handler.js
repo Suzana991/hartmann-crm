@@ -227,7 +227,7 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
       await putFile(changeCfg, fetchImpl, {
         sha: existing.missing ? undefined : existing.sha,
         text: JSON.stringify({ items: items }, null, 2),
-        message: "Update activity log via API"
+        message: "Update changelog via API"
       });
     } catch (e) {
       console.error("changelog-write-failed:", e && e.message ? e.message : String(e));
