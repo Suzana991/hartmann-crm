@@ -1455,15 +1455,13 @@
         },
         {
           "id": "mv045op01vcagm",
-          "name": "",
+          "name": "Cristiano Ronci",
           "title": "Head of Italy",
-          "email": "cristiano.ronci@savillsim.com (as printed, surname misspelt: confirm)",
+          "email": "cristiano.ronci@savillsim.com",
           "phone": "",
           "notes": "",
           "isPrimary": false,
-          "reviewFlags": [
-            "invalid-email-format"
-          ]
+          "reviewFlags": []
         },
         {
           "id": "mv045op0kddduj",
