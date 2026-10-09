@@ -1,10 +1,19 @@
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MAX_STATE_CHARS = 600000;
 const STAGES = new Set([
   "not_contacted", "awaiting_response", "in_discussion", "reviewing_materials",
   "due_diligence", "committed", "funded", "declined", "on_hold"
 ]);
-const TASK_STATUSES = new Set(["To do", "In progress", "Completed"]);
+const DELIVERY_STAGES = new Set([
+  "onboarding", "engagement_agreement", "due_diligence", "materials_preparation",
+  "investor_outreach", "negotiation_structuring", "closing", "post_closing"
+]);
+const PROJECT_STATES = new Set(["active", "on_hold", "archived"]);
+const AGREEMENT_STATUSES = new Set(["not_started", "drafting", "sent", "signed", "declined"]);
+const ACTIVITY_KINDS = new Set(["outreach", "reply", "materials", "note", "appointment"]);
+const OUTREACH_TYPES = new Set(["Email", "Call", "Meeting", "Message", "Other outreach"]);
+const TASK_KINDS = new Set(["task", "appointment"]);
+const TASK_STATUSES = new Set(["To do", "In progress", "Waiting", "Completed"]);
 
 export class PayloadError extends Error {
   constructor(code, status, message) {
@@ -58,6 +67,14 @@ export function validateState(data) {
     if (!p || typeof p !== "object" || typeof p.id !== "string" || !p.id) throw new PayloadError("invalid-state", 400, "project missing id");
     if (projectIds.has(p.id)) throw new PayloadError("invalid-state", 400, "duplicate project id");
     projectIds.add(p.id);
+    if (!PROJECT_STATES.has(p.state)) throw new PayloadError("invalid-state", 400, "project has unknown state '" + p.state + "'");
+    if (p.deliveryStage !== null && !DELIVERY_STAGES.has(p.deliveryStage)) throw new PayloadError("invalid-state", 400, "project has unknown delivery stage '" + p.deliveryStage + "'");
+    if (typeof p.lead !== "string" || !["", "Suzana", "Bruno"].includes(p.lead)) throw new PayloadError("invalid-state", 400, "project lead must be '', 'Suzana' or 'Bruno'");
+    if (!Array.isArray(p.milestones)) throw new PayloadError("invalid-state", 400, "project milestones must be an array");
+    if (!p.stageNotes || typeof p.stageNotes !== "object") throw new PayloadError("invalid-state", 400, "project stageNotes must be an object");
+    if (!Array.isArray(p.stageHistory)) throw new PayloadError("invalid-state", 400, "project stageHistory must be an array");
+    if (!p.agreement || typeof p.agreement !== "object") throw new PayloadError("invalid-state", 400, "project agreement must be an object");
+    if (!AGREEMENT_STATUSES.has(p.agreement.status)) throw new PayloadError("invalid-state", 400, "agreement has unknown status '" + p.agreement.status + "'");
     if (!Array.isArray(p.engagements)) throw new PayloadError("invalid-state", 400, "project engagements must be an array");
     for (const e of p.engagements) {
       if (!e || typeof e !== "object" || typeof e.id !== "string" || !e.id) throw new PayloadError("invalid-state", 400, "engagement missing id");
@@ -75,6 +92,8 @@ export function validateState(data) {
     if (!a || typeof a !== "object" || typeof a.id !== "string" || !a.id) throw new PayloadError("invalid-state", 400, "activity missing id");
     if (!engagementIds.has(a.engagementId)) throw new PayloadError("invalid-state", 400, "activity references unknown engagement");
     if (a.contactId !== null && a.contactId !== undefined && !contactIds.has(a.contactId)) throw new PayloadError("invalid-state", 400, "activity references unknown contact");
+    if (!ACTIVITY_KINDS.has(a.kind)) throw new PayloadError("invalid-state", 400, "activity has unknown kind '" + a.kind + "'");
+    if (a.kind === "outreach" && a.outreachType && !OUTREACH_TYPES.has(a.outreachType)) throw new PayloadError("invalid-state", 400, "activity has unknown outreach type '" + a.outreachType + "'");
   }
   const taskIds = new Set();
   for (const t of data.tasks) {
@@ -85,6 +104,15 @@ export function validateState(data) {
     if (t.projectId && !projectIds.has(t.projectId)) throw new PayloadError("invalid-state", 400, "task references unknown project");
     if (t.engagementId && !engagementIds.has(t.engagementId)) throw new PayloadError("invalid-state", 400, "task references unknown engagement");
     if (!TASK_STATUSES.has(t.status)) throw new PayloadError("invalid-state", 400, "task has unknown status");
+    if (t.stage !== undefined && t.stage !== "" && !DELIVERY_STAGES.has(t.stage)) throw new PayloadError("invalid-state", 400, "task has unknown delivery stage '" + t.stage + "'");
+    if (t.kind !== undefined && !TASK_KINDS.has(t.kind)) throw new PayloadError("invalid-state", 400, "task has unknown kind '" + t.kind + "'");
+  }
+  if (data.taskTemplates !== undefined && !Array.isArray(data.taskTemplates)) throw new PayloadError("invalid-state", 400, "taskTemplates must be an array");
+  if (data.taskTemplates) {
+    for (const tpl of data.taskTemplates) {
+      if (!tpl || typeof tpl !== "object" || typeof tpl.title !== "string" || !tpl.title) throw new PayloadError("invalid-state", 400, "task template needs a title");
+      if (!DELIVERY_STAGES.has(tpl.stage)) throw new PayloadError("invalid-state", 400, "task template has unknown stage");
+    }
   }
   if (data.activeProjectId && !projectIds.has(data.activeProjectId)) throw new PayloadError("invalid-state", 400, "activeProjectId references unknown project");
   return true;

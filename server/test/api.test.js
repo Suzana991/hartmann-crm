@@ -29,7 +29,7 @@ const GITHUB_CFG = {
 
 function minimalState(overrides) {
   return Object.assign({
-    schemaVersion: 2,
+    schemaVersion: 3,
     investors: [],
     projects: [],
     activities: [],
@@ -38,10 +38,14 @@ function minimalState(overrides) {
   }, overrides || {});
 }
 
+function agreementStub() {
+  return { status: "not_started", sentDate: "", sentBy: "", signedDate: "", docLink: "", notes: "", history: [] };
+}
+
 function seededState() {
   return minimalState({
     investors: [{ id: "inv1", name: "Test Bank", type: "Bank", website: "", location: "", preferences: "", notes: "", archived: false, contacts: [] }],
-    projects: [{ id: "proj1", name: "Palazzo Ricci", archived: false, engagements: [{ id: "eng1", investorId: "inv1", stage: "not_contacted", priority: "", owner: "", contactIds: [], notes: "", archived: false, legacy: { reachedOut: false, whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "" }, reviewFlags: [] }] }],
+    projects: [{ id: "proj1", name: "Palazzo Ricci", archived: false, state: "active", deliveryStage: null, lead: "", milestones: [], stageNotes: {}, stageHistory: [], agreement: agreementStub(), engagements: [{ id: "eng1", investorId: "inv1", stage: "not_contacted", priority: "", owner: "", contactIds: [], notes: "", archived: false, legacy: { reachedOut: false, whoReachedOut: "", dateReachedOut: "", response: "", movingForward: "", nextSteps: "" }, reviewFlags: [] }] }],
     activeProjectId: "proj1"
   });
 }
@@ -166,7 +170,7 @@ test("null baseSha only allowed when file does not exist", async () => {
   const fresh = setup();
   const res2 = await fresh.handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: minimalState(), baseSha: null } }));
   assert.equal(res2.status, 200, "creates the file on first save");
-  assert.equal(JSON.parse(fs.readFileSync(fresh.dataFile, "utf8")).schemaVersion, 2);
+  assert.equal(JSON.parse(fs.readFileSync(fresh.dataFile, "utf8")).schemaVersion, 3);
 });
 
 test("write conflict arising during storage commit still returns 409", async () => {
@@ -196,12 +200,12 @@ test("legacy and future schema payloads are rejected with distinct errors", asyn
   const v1 = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: { schemaVersion: 1, projects: [] }, baseSha: first.sha } }));
   assert.equal(v1.status, 400);
   assert.equal((await readJson(v1)).error, "schema-migration-required");
-  const future = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: { schemaVersion: 3 }, baseSha: first.sha } }));
+  const future = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: { schemaVersion: 4 }, baseSha: first.sha } }));
   assert.equal(future.status, 426);
   const futureBody = await readJson(future);
   assert.equal(futureBody.error, "unsupported-schema-version");
   assert.match(futureBody.message, /newer version/);
-  assert.match(futureBody.message, /supports up to v2/);
+  assert.match(futureBody.message, /supports up to v3/);
 });
 
 test("structurally invalid state is rejected and file untouched", async () => {
@@ -303,7 +307,7 @@ test("end-to-end: migrated state round-trips through the API unchanged", async (
   const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: migrated.state, baseSha: first.sha } }));
   assert.equal(save.status, 200);
   const reload = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[1] })));
-  assert.equal(reload.data.schemaVersion, 2);
+  assert.equal(reload.data.schemaVersion, 3);
   assert.equal(reload.data.investors.length, 73);
   assert.equal(reload.data.tasks.length, 2);
   assert.deepEqual(JSON.parse(fs.readFileSync(dataFile, "utf8")), migrated.state);
