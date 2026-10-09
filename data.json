@@ -4137,54 +4137,6 @@
           "date": "2026-08-01",
           "by": "Suzana",
           "note": ""
-        },
-        {
-          "id": "mv15f1hofd5809",
-          "from": "onboarding",
-          "to": "due_diligence",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
-        },
-        {
-          "id": "mv15fdlrm1f4ex",
-          "from": "due_diligence",
-          "to": "materials_preparation",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
-        },
-        {
-          "id": "mv15fiw7kjqsj5",
-          "from": "materials_preparation",
-          "to": "investor_outreach",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
-        },
-        {
-          "id": "mv15fn55w0in7x",
-          "from": "investor_outreach",
-          "to": "negotiation_structuring",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
-        },
-        {
-          "id": "mv15frgt3fefby",
-          "from": "negotiation_structuring",
-          "to": "closing",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
-        },
-        {
-          "id": "mv17uw5gmw034c",
-          "from": "closing",
-          "to": "onboarding",
-          "date": "2026-10-09",
-          "by": "",
-          "note": ""
         }
       ],
       "agreement": {
