@@ -230,16 +230,6 @@
           "notes": "",
           "isPrimary": false,
           "reviewFlags": []
-        },
-        {
-          "id": "mv1kgjntfcfzc2",
-          "reviewFlags": [],
-          "name": "ZZVERIFY Contact",
-          "title": "",
-          "email": "zzverify@example.com",
-          "phone": "",
-          "notes": "",
-          "isPrimary": false
         }
       ]
     },
