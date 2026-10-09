@@ -4125,7 +4125,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "materials_preparation",
+      "deliveryStage": "investor_outreach",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4150,6 +4150,14 @@
           "id": "mv15fdlrm1f4ex",
           "from": "due_diligence",
           "to": "materials_preparation",
+          "date": "2026-10-09",
+          "by": "",
+          "note": ""
+        },
+        {
+          "id": "mv15fiw7kjqsj5",
+          "from": "materials_preparation",
+          "to": "investor_outreach",
           "date": "2026-10-09",
           "by": "",
           "note": ""
