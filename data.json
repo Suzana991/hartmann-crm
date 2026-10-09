@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "investors": [
     {
       "id": "muyt073t551gyl",
@@ -4123,13 +4123,43 @@
           },
           "reviewFlags": []
         }
-      ]
+      ],
+      "state": "active",
+      "deliveryStage": null,
+      "lead": "",
+      "milestones": [],
+      "stageNotes": {},
+      "stageHistory": [],
+      "agreement": {
+        "status": "not_started",
+        "sentDate": "",
+        "sentBy": "",
+        "signedDate": "",
+        "docLink": "",
+        "notes": "",
+        "history": []
+      }
     },
     {
       "id": "mv04627xeqhrns",
       "name": "MBI",
       "archived": false,
-      "engagements": []
+      "engagements": [],
+      "state": "active",
+      "deliveryStage": null,
+      "lead": "",
+      "milestones": [],
+      "stageNotes": {},
+      "stageHistory": [],
+      "agreement": {
+        "status": "not_started",
+        "sentDate": "",
+        "sentBy": "",
+        "signedDate": "",
+        "docLink": "",
+        "notes": "",
+        "history": []
+      }
     }
   ],
   "activities": [],
@@ -4147,7 +4177,11 @@
       "contactId": null,
       "legacy": true,
       "source": "legacy-task",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "stage": "",
+      "waitingReason": "",
+      "kind": "task",
+      "templateKey": ""
     }
   ],
   "activeProjectId": "muysm8sbcsf8rj",
@@ -8980,5 +9014,145 @@
       }
     ],
     "activeProjectId": "muysm8sbcsf8rj"
-  }
+  },
+  "taskTemplates": [
+    {
+      "id": "onboarding_collect_project_information",
+      "stage": "onboarding",
+      "title": "Collect project information",
+      "enabled": true
+    },
+    {
+      "id": "onboarding_confirm_funding_request",
+      "stage": "onboarding",
+      "title": "Confirm funding request",
+      "enabled": true
+    },
+    {
+      "id": "onboarding_identify_missing_information",
+      "stage": "onboarding",
+      "title": "Identify missing information",
+      "enabled": true
+    },
+    {
+      "id": "engagement_agreement_prepare_agreement",
+      "stage": "engagement_agreement",
+      "title": "Prepare agreement",
+      "enabled": true
+    },
+    {
+      "id": "engagement_agreement_record_sent",
+      "stage": "engagement_agreement",
+      "title": "Record sent",
+      "enabled": true
+    },
+    {
+      "id": "engagement_agreement_follow_up_on_agreement",
+      "stage": "engagement_agreement",
+      "title": "Follow up on agreement",
+      "enabled": true
+    },
+    {
+      "id": "engagement_agreement_record_signature",
+      "stage": "engagement_agreement",
+      "title": "Record signature",
+      "enabled": true
+    },
+    {
+      "id": "due_diligence_collect_documents",
+      "stage": "due_diligence",
+      "title": "Collect documents",
+      "enabled": true
+    },
+    {
+      "id": "due_diligence_review_financial_model",
+      "stage": "due_diligence",
+      "title": "Review financial model",
+      "enabled": true
+    },
+    {
+      "id": "due_diligence_resolve_open_questions",
+      "stage": "due_diligence",
+      "title": "Resolve open questions",
+      "enabled": true
+    },
+    {
+      "id": "materials_preparation_draft_teaser",
+      "stage": "materials_preparation",
+      "title": "Draft teaser",
+      "enabled": true
+    },
+    {
+      "id": "materials_preparation_prepare_investment_presentation",
+      "stage": "materials_preparation",
+      "title": "Prepare investment presentation",
+      "enabled": true
+    },
+    {
+      "id": "materials_preparation_review_data_room",
+      "stage": "materials_preparation",
+      "title": "Review data room",
+      "enabled": true
+    },
+    {
+      "id": "investor_outreach_build_target_list",
+      "stage": "investor_outreach",
+      "title": "Build target list",
+      "enabled": true
+    },
+    {
+      "id": "investor_outreach_assign_outreach",
+      "stage": "investor_outreach",
+      "title": "Assign outreach",
+      "enabled": true
+    },
+    {
+      "id": "investor_outreach_distribute_materials",
+      "stage": "investor_outreach",
+      "title": "Distribute materials",
+      "enabled": true
+    },
+    {
+      "id": "investor_outreach_schedule_follow_ups",
+      "stage": "investor_outreach",
+      "title": "Schedule follow-ups",
+      "enabled": true
+    },
+    {
+      "id": "negotiation_structuring_compare_proposals",
+      "stage": "negotiation_structuring",
+      "title": "Compare proposals",
+      "enabled": true
+    },
+    {
+      "id": "negotiation_structuring_track_outstanding_conditions",
+      "stage": "negotiation_structuring",
+      "title": "Track outstanding conditions",
+      "enabled": true
+    },
+    {
+      "id": "negotiation_structuring_coordinate_next_discussions",
+      "stage": "negotiation_structuring",
+      "title": "Coordinate next discussions",
+      "enabled": true
+    },
+    {
+      "id": "closing_track_documents",
+      "stage": "closing",
+      "title": "Track documents",
+      "enabled": true
+    },
+    {
+      "id": "closing_monitor_conditions",
+      "stage": "closing",
+      "title": "Monitor conditions",
+      "enabled": true
+    },
+    {
+      "id": "closing_confirm_completion",
+      "stage": "closing",
+      "title": "Confirm completion",
+      "enabled": true
+    }
+  ]
 }
