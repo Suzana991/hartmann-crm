@@ -4125,7 +4125,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "onboarding",
+      "deliveryStage": "due_diligence",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4136,6 +4136,14 @@
           "to": "onboarding",
           "date": "2026-08-01",
           "by": "Suzana",
+          "note": ""
+        },
+        {
+          "id": "mv15f1hofd5809",
+          "from": "onboarding",
+          "to": "due_diligence",
+          "date": "2026-10-09",
+          "by": "",
           "note": ""
         }
       ],
