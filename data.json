@@ -4182,25 +4182,6 @@
       "waitingReason": "",
       "kind": "task",
       "templateKey": ""
-    },
-    {
-      "id": "mv0a5kskwhwqao",
-      "title": "ZZVERIFY Task B-first",
-      "owner": "",
-      "dueDate": "",
-      "status": "To do",
-      "waitingReason": "",
-      "priority": "",
-      "notes": "",
-      "projectId": "muysm8sbcsf8rj",
-      "engagementId": "",
-      "contactId": "",
-      "stage": "",
-      "kind": "task",
-      "templateKey": "",
-      "legacy": false,
-      "source": "",
-      "reviewFlags": []
     }
   ],
   "activeProjectId": "muysm8sbcsf8rj",
