@@ -309,6 +309,13 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 .link-btn{background:none;border:none;color:var(--accent);font-size:12px;padding:0;text-decoration:underline}
 .count-badge{display:inline-block;min-width:18px;text-align:center;background:var(--chip-bg);border-radius:9px;padding:0 6px;font-size:11px}
 .my-tasks-pref{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.nav-badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:999px;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-grid;place-items:center;padding:0 5px}
+.update-row{display:grid;grid-template-columns:auto 92px 1fr;gap:6px 12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);margin-bottom:8px;font-size:13px}
+.update-who{font-weight:700;font-size:12px;text-transform:capitalize}
+.update-when{color:var(--muted);font-size:11.5px}
+.update-what{word-break:break-word;color:var(--text)}
+#updates-list .empty-state{margin-top:4px}
+.banner{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
 @media (max-width:900px){
   .split{grid-template-columns:1fr}
@@ -341,6 +348,7 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
       <button class="nav-btn" data-nav="calendar" data-action="open-view" data-view="calendar">Calendar</button>
       <button class="nav-btn" data-nav="directory" data-action="open-view" data-view="directory">Investor Directory</button>
       <button class="nav-btn" data-nav="tasks" data-action="open-view" data-view="tasks">Tasks</button>
+      <button class="nav-btn" data-nav="updates" data-action="open-view" data-view="updates">Updates<span id="updates-badge" class="nav-badge hidden"></span></button>
     </nav>
     <div class="side-section-head"><span>Projects</span><button class="mini-add" data-action="add-project" title="New project">+</button></div>
     <div id="projects-list" class="projects-list"></div>
@@ -381,6 +389,7 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
     <section id="view-calendar" class="view hidden"></section>
     <section id="view-directory" class="view hidden"></section>
     <section id="view-tasks" class="view hidden"></section>
+    <section id="view-updates" class="view hidden"></section>
   </div>
 </div>
 

@@ -15,8 +15,10 @@ const ENV = {
   GITHUB_REPO: "hartmann-crm",
   GITHUB_BRANCH: "data",
   DATA_PATH: "data.json",
+  CHANGE_PATH: "changelog.json",
   GITHUB_TOKEN: GH_TOKEN,
   AUTH_TOKENS: TEAM_TOKENS.join(", "),
+  AUTH_NAMES: TEAM_TOKENS[0] + ":Alpha," + TEAM_TOKENS[1] + ":Beta",
   CORS_ORIGIN: "https://suzana991.github.io"
 };
 
@@ -26,6 +28,8 @@ const GITHUB_CFG = {
   branch: ENV.GITHUB_BRANCH,
   path: ENV.DATA_PATH
 };
+
+const GITHUB_CHANGE_CFG = Object.assign({}, GITHUB_CFG, { path: ENV.CHANGE_PATH });
 
 function minimalState(overrides) {
   return Object.assign({
@@ -57,12 +61,15 @@ function legacySeed() {
 function setup(opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "crm-api-test-"));
   const dataFile = path.join(dir, "data.json");
+  const changeFile = path.join(dir, "changelog.json");
   if (opts.seed !== undefined && opts.seed !== null) fs.writeFileSync(dataFile, opts.seed, "utf8");
-  const emu = createGitHubEmulator(GITHUB_CFG, dataFile);
+  if (opts.changelogSeed !== undefined && opts.changelogSeed !== null) fs.writeFileSync(changeFile, opts.changelogSeed, "utf8");
+  const files = { [GITHUB_CFG.path]: dataFile, [GITHUB_CHANGE_CFG.path]: changeFile };
+  const emu = createGitHubEmulator(GITHUB_CFG, files);
   let impl = emu.fetchImpl;
   if (opts.wrapFetch) impl = opts.wrapFetch(emu.fetchImpl);
   const handler = createHandler(opts.env || ENV, impl);
-  return { handler, emu, dataFile };
+  return { handler, emu, dataFile, changeFile };
 }
 
 function makeReq(method, target, opts = {}) {
@@ -142,10 +149,12 @@ test("save with matching baseSha persists and returns new sha", async () => {
   assert.notEqual(body.sha, first.sha);
   const onDisk = JSON.parse(fs.readFileSync(dataFile, "utf8"));
   assert.deepEqual(onDisk, next);
-  const puts = emu.calls.filter((c) => c.method === "PUT");
-  assert.equal(puts.length, 1);
-  assert.equal(puts[0].url, buildFileUrl(GITHUB_CFG, { withRef: false }));
-  assert.ok(puts[0].body.includes('"message":"Update CRM data via API"'));
+  const dataPuts = emu.calls.filter((c) => c.method === "PUT" && c.url === buildFileUrl(GITHUB_CFG, { withRef: false }));
+  assert.equal(dataPuts.length, 1);
+  assert.ok(dataPuts[0].body.includes('"message":"Update CRM data via API"'));
+  const changePuts = emu.calls.filter((c) => c.method === "PUT" && c.url === buildFileUrl(GITHUB_CHANGE_CFG, { withRef: false }));
+  assert.equal(changePuts.length, 1, "a changelog entry is written alongside a successful data save");
+  assert.ok(changePuts[0].body.includes('"message":"Update activity log via API"'));
 });
 
 test("stale baseSha yields 409 with current data and performs no write", async () => {
@@ -317,4 +326,127 @@ test("end-to-end: migrated state round-trips through the API unchanged", async (
   assert.equal(final.data.investors.length, 73, "no duplication after save/reload/save cycle");
   assert.equal(final.data.tasks.length, 2);
   assert.equal(final.data.activities.length, 1);
+});
+
+let MIGRATION_MODULE = null;
+async function migrationModule() {
+  if (!MIGRATION_MODULE) MIGRATION_MODULE = await import("../../migration.js").then((m) => m.default || m);
+  return MIGRATION_MODULE;
+}
+
+test("changelog: GET requires auth, returns feed shape and a migration save is attributed", async () => {
+  const M = await migrationModule();
+  const fixture = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "tests", "fixtures", "legacy-data.json"), "utf8").replace(/^\uFEFF/, ""));
+  const migrated = M.migrate(fixture, { now: "2026-10-08T00:00:00.000Z" }).state;
+  const { handler, emu, changeFile } = setup({ seed: legacySeed() });
+
+  const noAuth = await handler(makeReq("GET", "/api/changelog"));
+  assert.equal(noAuth.status, 401);
+  const badAuth = await handler(makeReq("GET", "/api/changelog", { token: "not-a-team-token" }));
+  assert.equal(badAuth.status, 401);
+  assert.equal(emu.calls.length, 0, "no storage request happens before authentication");
+
+  const empty = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[0] })));
+  assert.deepEqual(empty.items, []);
+  assert.equal(empty.sha, null);
+  assert.equal(typeof empty.dataSha, "string", "dataSha points at the current data blob even when no changelog exists");
+
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[1], body: { data: migrated, baseSha: first.sha } }));
+  assert.equal(save.status, 200);
+  const putResult = await readJson(save);
+
+  const feed = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[0] })));
+  const text = JSON.stringify(feed);
+  assert.ok(!text.includes(GH_TOKEN));
+  for (const t of TEAM_TOKENS) assert.ok(!text.includes(t), "team tokens absent from changelog payload");
+  assert.equal(feed.items.length, 1);
+  const entry = feed.items[0];
+  assert.equal(entry.user, "Beta");
+  assert.match(entry.summary, /Migrated the dataset to schema v3/);
+  assert.match(entry.summary, /investors/);
+  assert.ok(/^\d{4}-\d{2}-\d{2}T/.test(entry.ts));
+  assert.equal(typeof entry.id, "string");
+  assert.equal(typeof feed.sha, "string");
+  assert.equal(feed.dataSha, putResult.sha, "changelog reflects the current data blob sha");
+  const onDisk = JSON.parse(fs.readFileSync(changeFile, "utf8"));
+  assert.equal(onDisk.items[0].summary, entry.summary);
+  const readUrls = emu.calls.filter((c) => c.method === "GET").map((c) => c.url);
+  assert.ok(readUrls.includes(buildFileUrl(GITHUB_CFG)), "data read stays scoped to data.json");
+  assert.ok(readUrls.includes(buildFileUrl(GITHUB_CHANGE_CFG)), "changelog read stays scoped to changelog.json");
+});
+
+test("changelog: re-saving identical state adds no new entry", async () => {
+  const M = await migrationModule();
+  const fixture = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "tests", "fixtures", "legacy-data.json"), "utf8").replace(/^\uFEFF/, ""));
+  const { handler } = setup({ seed: legacySeed() });
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const migrated = M.migrate(fixture, { now: "2026-10-08T00:00:00.000Z" }).state;
+  const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[1], body: { data: migrated, baseSha: first.sha } }));
+  assert.equal(save.status, 200);
+  const reload = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const again = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: reload.data, baseSha: reload.sha } }));
+  assert.equal(again.status, 200, "saving the same reloaded state succeeds");
+  const feed = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[0] })));
+  assert.equal(feed.items.length, 1, "nothing extra logged for a no-op save");
+});
+
+test("changelog: regular edits produce a targeted summary and entries are capped", async () => {
+  const { handler } = setup({ seed: JSON.stringify(seededState()) });
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const next1 = seededState();
+  next1.investors[0].name = "Test Bank Europe";
+  const save1 = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next1, baseSha: first.sha } }));
+  assert.equal(save1.status, 200);
+  const reload = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const next2 = JSON.parse(JSON.stringify(reload.data));
+  next2.projects[0].engagements[0].stage = "awaiting_response";
+  next2.projects[0].engagements[0].owner = "Bruno";
+  next2.investors[0].contacts.push({ id: "c2", name: "Jane" });
+  next2.projects[0].engagements[0].contactIds = ["c2"];
+  next2.tasks.push({ id: "task1", title: "Send deck on Palazzo Ricci", status: "To do", kind: "task", projectId: "proj1", engagementId: "eng1" });
+  const save2 = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next2, baseSha: reload.sha } }));
+  assert.equal(save2.status, 200);
+
+  const feed = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[1] })));
+  assert.equal(feed.items.length, 2);
+  const second = feed.items[0];
+  const firstEntry = feed.items[1];
+  assert.equal(firstEntry.user, "Alpha");
+  assert.match(firstEntry.summary, /updated investor/);
+  assert.equal(second.user, "Alpha");
+  assert.match(second.summary, /awaiting_response/);
+  assert.match(second.summary, /re-assigned/);
+  assert.match(second.summary, /added task/);
+  assert.match(second.summary, /New contact/);
+
+  const capped = setup({
+    seed: JSON.stringify(next1),
+    changelogSeed: JSON.stringify({ items: Array.from({ length: 200 }, (_, i) => ({ id: "old" + i, ts: "2026-01-01T00:00:00.000Z", user: "Alpha", summary: "old " + i })) })
+  });
+  const base = await readJson(await capped.handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const capSave = await capped.handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next2, baseSha: base.sha } }));
+  assert.equal(capSave.status, 200);
+  const feed2 = await readJson(await capped.handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[0] })));
+  assert.equal(feed2.items.length, 200);
+  assert.equal(feed2.items[0].summary, second.summary);
+  assert.equal(feed2.items[199].id, "old198", "oldest entry dropped when the cap is exceeded");
+});
+
+test("changelog: a failed changelog write never fails the data save", async () => {
+  const { handler, dataFile } = setup({
+    seed: JSON.stringify(seededState()),
+    wrapFetch: (inner) => async (url, init) => {
+      if ((init.method || "GET") === "PUT" && String(url).includes("changelog.json")) {
+        return new Response(JSON.stringify({ message: "boom" }), { status: 502 });
+      }
+      return inner(url, init);
+    }
+  });
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const next = seededState();
+  next.investors[0].name = "Renamed";
+  const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next, baseSha: first.sha } }));
+  assert.equal(save.status, 200, "data save succeeds even though the changelog write fails");
+  assert.equal(JSON.parse(fs.readFileSync(dataFile, "utf8")).investors[0].name, "Renamed");
 });

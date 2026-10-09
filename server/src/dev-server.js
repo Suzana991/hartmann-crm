@@ -11,6 +11,8 @@ const PORT = Number(process.env.PORT || 8788);
 const DEV_TOKEN = process.env.DEV_TOKEN || "dev-token";
 const TEMP = process.env.TEMP || process.env.TMP || ROOT;
 const DATA_FILE = process.env.DEV_DATA_FILE || path.join(TEMP, "hartmann-crm-dev-data.json");
+const CHANGE_FILE = process.env.DEV_CHANGE_FILE || path.join(TEMP, "hartmann-crm-dev-changelog.json");
+const CHANGE_PATH = process.env.CHANGE_PATH && String(process.env.CHANGE_PATH).trim() ? String(process.env.CHANGE_PATH).trim() : "changelog.json";
 const FIXTURE = path.join(ROOT, "tests", "fixtures", "legacy-data.json");
 
 const STATIC_FILES = {
@@ -25,7 +27,10 @@ const STATIC_FILES = {
 };
 
 function seedDataFile() {
-  if (process.env.DEV_RESET && fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
+  if (process.env.DEV_RESET) {
+    if (fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
+    if (fs.existsSync(CHANGE_FILE)) fs.unlinkSync(CHANGE_FILE);
+  }
   if (!fs.existsSync(DATA_FILE)) {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     fs.copyFileSync(FIXTURE, DATA_FILE);
@@ -39,8 +44,10 @@ function makeEnv() {
     GITHUB_REPO: "hartmann-crm",
     GITHUB_BRANCH: "dev",
     DATA_PATH: "data.json",
+    CHANGE_PATH: CHANGE_PATH,
     GITHUB_TOKEN: "dev-github-token",
     AUTH_TOKENS: DEV_TOKEN,
+    AUTH_NAMES: process.env.AUTH_NAMES || "",
     CORS_ORIGIN: "*"
   };
 }
@@ -71,7 +78,7 @@ seedDataFile();
 const env = makeEnv();
 const emulator = createGitHubEmulator(
   { owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO, branch: env.GITHUB_BRANCH, path: env.DATA_PATH, token: env.GITHUB_TOKEN },
-  DATA_FILE
+  { [env.DATA_PATH]: DATA_FILE, [env.CHANGE_PATH]: CHANGE_FILE }
 );
 const apiHandler = createHandler(env, emulator.fetchImpl);
 
@@ -139,5 +146,6 @@ server.listen(PORT, "127.0.0.1", function () {
   console.log("[dev] Hartmann CRM dev server on http://127.0.0.1:" + PORT);
   console.log("[dev] auth keys configured: " + String(DEV_TOKEN || "").split(",").filter(Boolean).length + " (values not logged)");
   console.log("[dev] data file:", DATA_FILE);
+  console.log("[dev] changelog file:", CHANGE_FILE);
   console.log("[dev] reset data with: DEV_RESET=1 node server/src/dev-server.js");
 });

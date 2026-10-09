@@ -318,6 +318,36 @@ async function main() {
   check("contact count restored", finalContacts === EXPECT.contacts, finalContacts + " vs " + EXPECT.contacts);
   check("task count restored", finalTasks === EXPECT.tasks, finalTasks + " vs " + EXPECT.tasks);
 
+  console.log("--- recent changes feed (live) ---");
+  const feedApi = await fetch(API_URL + "/api/changelog", { headers: { Authorization: "Bearer " + KEY } });
+  const feedBody = await feedApi.json();
+  check("changelog endpoint reachable", feedApi.status === 200, feedApi.status);
+  check("feed has entries after this session's saves", Array.isArray(feedBody.items) && feedBody.items.length >= 4,
+    Array.isArray(feedBody.items) ? feedBody.items.length : "missing");
+  const feedText = JSON.stringify(feedBody);
+  check("changelog response never exposes secrets", feedText.indexOf("ghp_") === -1 && feedText.indexOf(KEY) === -1);
+  const feedHead = feedBody.items[0];
+  check("feed attributes the live user", feedHead && feedHead.user === "Suzana", feedHead && feedHead.user);
+  check("feed summaries are human readable", typeof feedHead.summary === "string" && feedHead.summary.length > 10);
+  const liveNow = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
+  check("feed dataSha matches the stored data", feedBody.dataSha === liveNow.sha, feedBody.dataSha);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await waitReady(page);
+  const liveBadge = await page.evaluate(() => {
+    const b = document.getElementById("updates-badge");
+    return { hidden: b.classList.contains("hidden"), n: b.textContent };
+  });
+  check("live unread badge shows pending changes", !liveBadge.hidden && Number(liveBadge.n) >= 4, JSON.stringify(liveBadge));
+  await page.click('[data-nav="updates"]');
+  await page.waitForSelector("#view-updates #updates-list", { timeout: 10000 });
+  const liveRows = await page.locator("#view-updates .update-row").count();
+  check("live feed renders entries", liveRows >= 4, liveRows);
+  const liveWho = await page.textContent("#view-updates .update-row .update-who");
+  check("live feed shows the actor name", liveWho.trim() === "Suzana", liveWho);
+  check("live badge cleared after viewing", await page.isHidden("#updates-badge"));
+  check("live stale-data banner hidden when current", await page.isHidden("#stale-banner"));
+
   const errs = consoleErrors.filter((e) =>
     e.indexOf("favicon") === -1 &&
     e.indexOf("Failed to load resource") === -1 &&

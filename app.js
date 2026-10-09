@@ -2,6 +2,8 @@ window.App = (function () {
   "use strict";
 
   let state = null;
+  const SEEN_KEY = "hartmann-crm-change-seen";
+  const changes = { items: [], dataSha: null, loaded: false };
   const ui = {
     view: "overview",
     projectId: null,
@@ -31,7 +33,8 @@ window.App = (function () {
     tracker: { title: "Project tracker", primary: "＋ Add engagement", action: "add-engagement" },
     calendar: { title: "Calendar", primary: "＋ Add task", action: "add-task" },
     directory: { title: "Investor Directory", primary: "＋ Add investor", action: "add-investor" },
-    tasks: { title: "Tasks", primary: "＋ Add task", action: "add-task" }
+    tasks: { title: "Tasks", primary: "＋ Add task", action: "add-task" },
+    updates: { title: "Recent changes", primary: "", action: "" }
   };
 
   function el(id) { return document.getElementById(id); }
@@ -96,14 +99,23 @@ window.App = (function () {
       subtitle = state.investors.length + " investors";
     } else if (ui.view === "tasks") {
       subtitle = Views.openTasks(state).length + " open tasks";
+    } else if (ui.view === "updates") {
+      const n = unreadCount();
+      subtitle = changes.items.length ? (changes.items.length + " logged" + (n ? " · " + n + " new" : "")) : "";
     } else {
       subtitle = state.investors.length + " investors · " + Views.allEngagements(state).length + " engagements";
     }
     el("view-title").textContent = title;
     el("view-subtitle").textContent = subtitle;
     const primary = el("primary-action-btn");
-    primary.textContent = meta.primary;
-    primary.dataset.action = meta.action;
+    if (meta.action) {
+      primary.classList.remove("hidden");
+      primary.textContent = meta.primary;
+      primary.dataset.action = meta.action;
+    } else {
+      primary.classList.add("hidden");
+    }
+    updateBadge();
 
     document.querySelectorAll(".view").forEach(function (v) { v.classList.add("hidden"); });
     const container = el("view-" + ui.view);
@@ -114,6 +126,7 @@ window.App = (function () {
     else if (ui.view === "calendar") container.innerHTML = Views.calendar(state, ui);
     else if (ui.view === "directory") container.innerHTML = Views.directory(state, ui);
     else if (ui.view === "tasks") container.innerHTML = Views.tasks(state, ui);
+    else if (ui.view === "updates") container.innerHTML = renderUpdates();
     if (hadSearchFocus) {
       const input = container.querySelector('[data-input="search"]');
       if (input) {
@@ -178,7 +191,84 @@ window.App = (function () {
   function switchView(view) {
     ui.view = view;
     ui.search = "";
+    if (view === "updates") markSeen();
     render();
+  }
+
+  function seenTs() {
+    try { return localStorage.getItem(SEEN_KEY) || ""; } catch (e) { return ""; }
+  }
+
+  function markSeen() {
+    if (!changes.items.length) return;
+    const latest = changes.items[0].ts;
+    if (!latest) return;
+    try { localStorage.setItem(SEEN_KEY, latest); } catch (e) { }
+    updateBadge();
+  }
+
+  function unreadCount() {
+    const seen = seenTs();
+    if (!seen) return changes.items.length;
+    let n = 0;
+    for (const it of changes.items) {
+      if (it.ts && it.ts > seen) n++;
+    }
+    return n;
+  }
+
+  function updateBadge() {
+    const badge = el("updates-badge");
+    if (!badge) return;
+    const n = unreadCount();
+    badge.textContent = n;
+    badge.classList.toggle("hidden", n === 0 || !changes.loaded);
+  }
+
+  function fmtChangeTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    const diffMin = Math.round((Date.now() - d) / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return diffMin + "m ago";
+    if (diffMin < 1440) return Math.round(diffMin / 60) + "h ago";
+    const days = Math.round(diffMin / 1440);
+    if (days === 1) return "yesterday";
+    if (days < 7) return days + "d ago";
+    return d.toLocaleDateString();
+  }
+
+  function renderUpdates() {
+    const stale = changes.loaded && changes.dataSha && Store.currentSha() && changes.dataSha !== Store.currentSha() && !Store.isDirty();
+    const banner = '<div id="stale-banner" class="banner' + (stale ? "" : " hidden") + '">The data on the server is newer than what you are viewing. <button class="link-btn" data-action="reload-data" data-stop>Reload</button></div>';
+    let body;
+    if (!changes.loaded) {
+      body = '<div class="empty-mini">Check back in a moment — the change feed loads with the app.</div>';
+    } else if (!changes.items.length) {
+      body = '<div class="empty-state"><p>No changes recorded yet. When someone edits the data, a summary of what changed will appear here.</p></div>';
+    } else {
+      body = changes.items.map(function (it) {
+        return '<div class="update-row">' +
+          '<span class="update-who">' + U.esc(it.user || "Team member") + '</span>' +
+          '<span class="update-when">' + U.esc(fmtChangeTime(it.ts)) + '</span>' +
+          '<span class="update-what">' + U.esc(it.summary) + '</span>' +
+          '</div>';
+      }).join("");
+    }
+    return banner + '<div id="updates-list">' + body + '</div>';
+  }
+
+  async function refreshChanges() {
+    if (!Store.isConfigured() || !Store.hasToken()) return;
+    try {
+      const result = await Store.loadChanges();
+      changes.items = Array.isArray(result.items) ? result.items : [];
+      changes.dataSha = result.dataSha || null;
+      changes.loaded = true;
+      updateBadge();
+      if (ui.view === "updates") render();
+    } catch (e) { }
   }
 
   function acquireTokenFromLink() {
@@ -249,6 +339,7 @@ window.App = (function () {
         ui.projectId = null;
         setStatus("saved", "New dataset — nothing stored yet");
         render();
+        refreshChanges();
         return;
       }
       const migrated = CRM_MIGRATION.migrate(result.data);
@@ -256,6 +347,7 @@ window.App = (function () {
       const firstProject = state.projects.find(function (p) { return !p.archived; });
       ui.projectId = state.activeProjectId || (firstProject ? firstProject.id : null);
       render();
+      refreshChanges();
       if (!migrated.alreadyMigrated) {
         setStatus("saving", "Saving migrated data…");
         Store.markDirty();
@@ -1440,7 +1532,8 @@ window.App = (function () {
       onConflict: function (payload) {
         actions._conflictPayload = payload;
         showConflict(payload);
-      }
+      },
+      onSaved: refreshChanges
     });
     wireEvents();
     window.addEventListener("beforeunload", function (event) {
@@ -1449,6 +1542,7 @@ window.App = (function () {
         event.returnValue = "";
       }
     });
+    setInterval(function () { refreshChanges(); }, 30000);
     bootstrap();
   }
 

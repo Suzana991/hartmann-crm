@@ -1,6 +1,7 @@
 import { authenticate } from "./auth.js";
 import { validateState, PayloadError } from "./validate.js";
 import { getFile, putFile, StorageError } from "./github.js";
+import { MAX_CHANGELOG, makeEntry, summarizeChange } from "./changelog.js";
 
 const MAX_BODY_CHARS = 900000;
 const REQUIRED_VARS = ["GITHUB_OWNER", "GITHUB_REPO", "GITHUB_BRANCH", "DATA_PATH", "GITHUB_TOKEN", "AUTH_TOKENS"];
@@ -34,16 +35,45 @@ function readConfig(env) {
     repo: env.GITHUB_REPO,
     branch: env.GITHUB_BRANCH,
     path: env.DATA_PATH,
+    changePath: env.CHANGE_PATH || "changelog.json",
     token: env.GITHUB_TOKEN,
     authTokens: env.AUTH_TOKENS,
+    authNames: env.AUTH_NAMES || "",
     corsOrigin: env.CORS_ORIGIN || "*"
   };
   const missing = REQUIRED_VARS.filter((k) => !env[k]);
   return { cfg, missing };
 }
 
+function parseAuthNames(secret) {
+  const map = {};
+  if (!secret) return map;
+  for (const raw of String(secret).split(/[,;]/)) {
+    const pair = raw.trim();
+    if (!pair) continue;
+    const idx = pair.indexOf(":");
+    if (idx <= 0) continue;
+    const key = pair.slice(0, idx).trim();
+    const name = pair.slice(idx + 1).trim();
+    if (key) map[key] = name || key;
+  }
+  return map;
+}
+
+function parseChangeItems(text) {
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed.items) ? parsed.items : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 export function createHandler(env, fetchImpl = globalThis.fetch) {
   const { cfg, missing } = readConfig(env);
+  const changeCfg = Object.assign({}, cfg, { path: cfg.changePath });
+  const authNames = parseAuthNames(cfg.authNames);
 
   return async function handle(request) {
     if (missing.length > 0) {
@@ -73,28 +103,33 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
       return json(401, { error: "unauthorized" }, cors);
     }
 
-    if (url.pathname !== "/api/data") {
-      return json(404, { error: "not-found" }, cors);
-    }
-
     try {
-      if (request.method === "GET") {
-        const file = await getFile(cfg, fetchImpl);
-        if (file.missing) return json(200, { data: null, sha: null }, cors);
-        let parsed;
-        try {
-          parsed = JSON.parse(file.text);
-        } catch (e) {
-          return json(500, { error: "stored-data-unreadable" }, cors);
+      if (url.pathname === "/api/data") {
+        if (request.method === "GET") {
+          const file = await getFile(cfg, fetchImpl);
+          if (file.missing) return json(200, { data: null, sha: null }, cors);
+          let parsed;
+          try {
+            parsed = JSON.parse(file.text);
+          } catch (e) {
+            return json(500, { error: "stored-data-unreadable" }, cors);
+          }
+          return json(200, { data: parsed, sha: file.sha }, cors);
         }
-        return json(200, { data: parsed, sha: file.sha }, cors);
+        if (request.method === "PUT") {
+          return await handlePut(request, cfg, changeCfg, authNames, auth.token, fetchImpl, cors);
+        }
+        return json(405, { error: "method-not-allowed" }, cors);
       }
 
-      if (request.method === "PUT") {
-        return await handlePut(request, cfg, fetchImpl, cors);
+      if (url.pathname === "/api/changelog") {
+        if (request.method === "GET") {
+          return await handleChangelogGet(cfg, changeCfg, fetchImpl, cors);
+        }
+        return json(405, { error: "method-not-allowed" }, cors);
       }
 
-      return json(405, { error: "method-not-allowed" }, cors);
+      return json(404, { error: "not-found" }, cors);
     } catch (err) {
       if (err instanceof PayloadError) {
         return json(err.status, { error: err.code, message: err.message }, cors);
@@ -116,7 +151,20 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
     }
   };
 
-  async function handlePut(request, cfg, fetchImpl, cors) {
+  async function handleChangelogGet(cfg, changeCfg, fetchImpl, cors) {
+    const [cl, data] = await Promise.all([
+      getFile(changeCfg, fetchImpl),
+      getFile(cfg, fetchImpl)
+    ]);
+    const items = cl.missing ? [] : parseChangeItems(cl.text);
+    return json(200, {
+      items: items,
+      sha: cl.missing ? null : cl.sha,
+      dataSha: data.missing ? null : data.sha
+    }, cors);
+  }
+
+  async function handlePut(request, cfg, changeCfg, authNames, authToken, fetchImpl, cors) {
     let raw;
     try {
       raw = await request.text();
@@ -162,7 +210,28 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
       text,
       message: "Update CRM data via API"
     });
+    await appendChangelog(current, body.data, text, cfg, changeCfg, authNames, authToken, fetchImpl);
     return json(200, { sha: result.sha }, cors);
+  }
+
+  async function appendChangelog(current, nextData, nextText, cfg, changeCfg, authNames, authToken, fetchImpl) {
+    try {
+      if (nextText === current.text) return;
+      const summary = summarizeChange(current.missing ? null : safeParse(current.text), nextData);
+      if (!summary) return;
+      const existing = await getFile(changeCfg, fetchImpl);
+      const items = existing.missing ? [] : parseChangeItems(existing.text);
+      const user = (authNames && authNames[authToken]) || "Team member";
+      items.unshift(makeEntry(user, summary));
+      if (items.length > MAX_CHANGELOG) items.length = MAX_CHANGELOG;
+      await putFile(changeCfg, fetchImpl, {
+        sha: existing.missing ? undefined : existing.sha,
+        text: JSON.stringify({ items: items }, null, 2),
+        message: "Update activity log via API"
+      });
+    } catch (e) {
+      console.error("changelog-write-failed:", e && e.message ? e.message : String(e));
+    }
   }
 }
 

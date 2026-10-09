@@ -91,9 +91,11 @@ async function main() {
   server = spawn(process.execPath, ["server/src/dev-server.js"], {
     cwd: ROOT,
     env: Object.assign({}, process.env, { PORT: String(PORT), DEV_RESET: "1", DEV_DATA_FILE: DATA_FILE }),
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true
   });
+  server.stdout.on("data", (d) => { try { fs.appendFileSync(path.join(process.env.TEMP || ".", "dash-server.log"), d); } catch (e) { } });
+  server.stderr.on("data", (d) => { try { fs.appendFileSync(path.join(process.env.TEMP || ".", "dash-server.log"), d); } catch (e) { } });
   await waitFor(async () => {
     const res = await fetch(BASE + "/config.js");
     return res.ok;
@@ -347,6 +349,27 @@ async function main() {
   check("device preference stored", stored === "Suzana", stored);
   await page.uncheck('#view-tasks [data-change="myTasksOnly"]');
   await page.selectOption('#view-tasks [data-change="myOwner"]', "");
+
+  console.log("--- recent changes feed ---");
+  await waitFor(async () => {
+    return !(await page.evaluate(() => document.getElementById("updates-badge").classList.contains("hidden")));
+  }, 10000, "updates badge populated after saves");
+  const badgeBefore = await page.evaluate(() => {
+    const b = document.getElementById("updates-badge");
+    return { hidden: b.classList.contains("hidden"), n: b.textContent };
+  });
+  check("unread badge shows pending changes before visiting", !badgeBefore.hidden && Number(badgeBefore.n) >= 1, JSON.stringify(badgeBefore));
+  await page.click('[data-nav="updates"]');
+  await page.waitForSelector("#view-updates #updates-list", { timeout: 5000 });
+  const rowCount = await page.locator("#view-updates .update-row").count();
+  check("feed lists recorded changes", rowCount >= 3, rowCount);
+  const firstSummary = await page.textContent("#view-updates .update-row .update-what");
+  const firstUser = await page.textContent("#view-updates .update-row .update-who");
+  check("feed shows a human summary per entry", firstSummary.trim().length > 10, firstSummary);
+  check("feed attributes the actor", firstUser.trim().length > 0, firstUser);
+  check("badge cleared after viewing the feed", await page.isHidden("#updates-badge"));
+  check("no stale-data banner when views are current", await page.isHidden("#stale-banner"));
+  await shot(page, "16-updates");
 
   const filteredErrors = consoleErrors.filter((e) =>
     e.indexOf("favicon") === -1 &&
