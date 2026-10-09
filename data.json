@@ -4125,11 +4125,20 @@
         }
       ],
       "state": "active",
-      "deliveryStage": null,
+      "deliveryStage": "onboarding",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
-      "stageHistory": [],
+      "stageHistory": [
+        {
+          "id": "mv13two45gt29z",
+          "from": null,
+          "to": "onboarding",
+          "date": "2026-08-01",
+          "by": "Suzana",
+          "note": ""
+        }
+      ],
       "agreement": {
         "status": "not_started",
         "sentDate": "",
