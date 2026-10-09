@@ -582,6 +582,19 @@ window.App = (function () {
       Modals.stageChangeModal(project, to);
     },
     "close-stage-detail": function () { ui.stageDetail = null; render(); },
+    "revoke-step": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (!project) return;
+      const history = project.stageHistory || [];
+      const idx = history.findIndex(function (h) { return h.id === ds.historyId; });
+      if (idx === -1) return;
+      if (!confirm("Revoke this step? The project returns to the stage it was in before it.")) return;
+      const entry = history[idx];
+      history.splice(idx, 1);
+      if (project.deliveryStage === entry.to) project.deliveryStage = entry.from;
+      commit();
+      U.toast("Step revoked.");
+    },
     "apply-templates": function (ds) {
       const project = Views.projectById(state, ds.id);
       if (project) Modals.templatesApplyModal(state, project, ds.stageId);
