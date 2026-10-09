@@ -4125,7 +4125,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "investor_outreach",
+      "deliveryStage": "negotiation_structuring",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4158,6 +4158,14 @@
           "id": "mv15fiw7kjqsj5",
           "from": "materials_preparation",
           "to": "investor_outreach",
+          "date": "2026-10-09",
+          "by": "",
+          "note": ""
+        },
+        {
+          "id": "mv15fn55w0in7x",
+          "from": "investor_outreach",
+          "to": "negotiation_structuring",
           "date": "2026-10-09",
           "by": "",
           "note": ""
