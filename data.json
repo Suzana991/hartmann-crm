@@ -4288,25 +4288,6 @@
       "legacy": false,
       "source": "template",
       "reviewFlags": []
-    },
-    {
-      "id": "zzchkmv16g5e6",
-      "title": "ZZ CHANGELOG MSG CHECK",
-      "kind": "task",
-      "status": "To do",
-      "owner": "",
-      "dueDate": "",
-      "waitingReason": "",
-      "priority": "",
-      "notes": "",
-      "projectId": "",
-      "engagementId": "",
-      "contactId": "",
-      "stage": "",
-      "templateKey": "",
-      "legacy": false,
-      "source": "",
-      "reviewFlags": []
     }
   ],
   "activeProjectId": "muysm8sbcsf8rj",
