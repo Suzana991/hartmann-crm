@@ -503,8 +503,9 @@ window.Views = (function () {
       '<label class="field wide">Stage notes<textarea class="stage-notes" data-change="stageNotes" data-project-id="' + U.esc(project.id) +
       '" data-stage-id="' + U.esc(stageId) + '" placeholder="What is happening in this stage?">' + U.esc(project.stageNotes && project.stageNotes[stageId] ? project.stageNotes[stageId] : "") + "</textarea></label>" +
       (history.length ? '<div class="history-list">' + history.map(function (h) {
-        return "<span>" + U.esc(U.fmtDate(h.date)) + " · " + U.esc(h.from ? (U.projectStageInfo(h.from) || {}).label || h.from : "Stage not set") +
-          " → " + U.esc(info.label) + (h.by ? " · " + U.esc(h.by) : "") + (h.note ? " — " + U.esc(h.note) : "") + "</span>";
+        return '<div class="history-row"><span>' + U.esc(U.fmtDate(h.date)) + " · " + U.esc(h.from ? (U.projectStageInfo(h.from) || {}).label || h.from : "Stage not set") +
+          " → " + U.esc(info.label) + (h.by ? " · " + U.esc(h.by) : "") + (h.note ? " — " + U.esc(h.note) : "") + "</span>" +
+          '<button class="ghost-btn danger" data-action="revoke-step" data-id="' + U.esc(project.id) + '" data-history-id="' + U.esc(h.id) + '">Revoke</button></div>';
       }).join("") + "</div>" : "") +
       (taskRows ? '<div class="task-list" style="margin-top:10px">' + taskRows + "</div>" : '<div class="empty-mini">No tasks in this stage yet.</div>') +
       "</div>";

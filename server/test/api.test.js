@@ -154,7 +154,7 @@ test("save with matching baseSha persists and returns new sha", async () => {
   assert.ok(dataPuts[0].body.includes('"message":"Update CRM data via API"'));
   const changePuts = emu.calls.filter((c) => c.method === "PUT" && c.url === buildFileUrl(GITHUB_CHANGE_CFG, { withRef: false }));
   assert.equal(changePuts.length, 1, "a changelog entry is written alongside a successful data save");
-  assert.ok(changePuts[0].body.includes('"message":"Update activity log via API"'));
+  assert.ok(changePuts[0].body.includes('"message":"Update changelog via API"'));
 });
 
 test("stale baseSha yields 409 with current data and performs no write", async () => {
@@ -431,6 +431,41 @@ test("changelog: regular edits produce a targeted summary and entries are capped
   assert.equal(feed2.items.length, 200);
   assert.equal(feed2.items[0].summary, second.summary);
   assert.equal(feed2.items[199].id, "old198", "oldest entry dropped when the cap is exceeded");
+});
+
+test("changelog: revoking a delivery step is summarized", async () => {
+  const seed = seededState();
+  seed.projects[0].deliveryStage = "onboarding";
+  seed.projects[0].stageHistory = [{ id: "h1", from: null, to: "onboarding", date: "2026-10-01", by: "Alpha", note: "" }];
+  const { handler } = setup({ seed: JSON.stringify(seed) });
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const next = JSON.parse(JSON.stringify(first.data));
+  next.projects[0].stageHistory = [];
+  next.projects[0].deliveryStage = null;
+  const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next, baseSha: first.sha } }));
+  assert.equal(save.status, 200);
+  const feed = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[0] })));
+  assert.equal(feed.items.length, 1);
+  assert.match(feed.items[0].summary, /Revoked 1 delivery step on Palazzo Ricci/);
+  assert.match(feed.items[0].summary, /left delivery stage/);
+
+  const seed2 = seededState();
+  seed2.projects[0].deliveryStage = "closing";
+  seed2.projects[0].stageHistory = [
+    { id: "h1", from: null, to: "onboarding", date: "2026-10-01", by: "Alpha", note: "" },
+    { id: "h2", from: "onboarding", to: "due_diligence", date: "2026-10-02", by: "Alpha", note: "" },
+    { id: "h3", from: "due_diligence", to: "closing", date: "2026-10-03", by: "Alpha", note: "" }
+  ];
+  const { handler: h2 } = setup({ seed: JSON.stringify(seed2) });
+  const base2 = await readJson(await h2(makeReq("GET", "/api/data", { token: TEAM_TOKENS[1] })));
+  const next2 = JSON.parse(JSON.stringify(base2.data));
+  const now = next2.projects[0].stageHistory.filter(function (x) { return x.id !== "h2"; });
+  next2.projects[0].stageHistory = now;
+  const save2 = await h2(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[1], body: { data: next2, baseSha: base2.sha } }));
+  assert.equal(save2.status, 200);
+  const feed2 = await readJson(await h2(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[1] })));
+  assert.match(feed2.items[0].summary, /Revoked 1 delivery step on Palazzo Ricci/);
+  assert.doesNotMatch(feed2.items[0].summary, /delivery stage/);
 });
 
 test("changelog: a failed changelog write never fails the data save", async () => {

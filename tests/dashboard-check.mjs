@@ -249,6 +249,20 @@ async function main() {
   check("template tasks listed under stage", stageTasks >= 3, stageTasks);
   await page.click('[data-action="close-stage-detail"]');
 
+  console.log("--- revoke delivery step ---");
+  await page.click('[data-action="set-stage"][data-stage-id="onboarding"]');
+  await page.waitForSelector(".history-row", { timeout: 5000 });
+  const histRows = await page.locator(".history-row").count();
+  check("step history listed in stage detail", histRows >= 1, histRows);
+  await page.click('.history-row [data-action="revoke-step"]');
+  await waitFor(async () => (await page.locator(".stage-seg.current").count()) === 0, 5000, "current stage removed after revoke");
+  check("revoking the step clears the current stage", true);
+  await waitSaved(page);
+  const phasesAfter = await page.locator(".stage-seg").evaluateAll((segs) => segs.map((s) => s.textContent));
+  check("no stage marked done after revoke", phasesAfter.every((t) => t.indexOf("done") === -1), phasesAfter.join("|"));
+  await page.click('[data-action="close-stage-detail"]');
+  await shot(page, "12b-stage-revoked");
+
   console.log("--- engagement agreement ---");
   const agreementBefore = await page.textContent(".agreement-panel .agreement-row");
   check("agreement starts not sent", agreementBefore.indexOf("Sent ") === -1, agreementBefore);
@@ -351,9 +365,16 @@ async function main() {
   await page.selectOption('#view-tasks [data-change="myOwner"]', "");
 
   console.log("--- recent changes feed ---");
+  const serverFeed = await fetch(BASE + "/api/changelog", { headers: { Authorization: "Bearer dev-token" } }).then((r) => r.json());
+  const feedCount = serverFeed.items.length;
+  check("server recorded the session's changes", feedCount >= 2, feedCount);
   await waitFor(async () => {
-    return !(await page.evaluate(() => document.getElementById("updates-badge").classList.contains("hidden")));
-  }, 10000, "updates badge populated after saves");
+    const n = await page.evaluate(() => {
+      const b = document.getElementById("updates-badge");
+      return b.classList.contains("hidden") ? -1 : Number(b.textContent);
+    });
+    return n === feedCount;
+  }, 10000, "unread badge equals server changelog count");
   const badgeBefore = await page.evaluate(() => {
     const b = document.getElementById("updates-badge");
     return { hidden: b.classList.contains("hidden"), n: b.textContent };
@@ -361,8 +382,9 @@ async function main() {
   check("unread badge shows pending changes before visiting", !badgeBefore.hidden && Number(badgeBefore.n) >= 1, JSON.stringify(badgeBefore));
   await page.click('[data-nav="updates"]');
   await page.waitForSelector("#view-updates #updates-list", { timeout: 5000 });
+  await waitFor(async () => (await page.locator("#view-updates .update-row").count()) >= feedCount, 5000, "feed rows match server count");
   const rowCount = await page.locator("#view-updates .update-row").count();
-  check("feed lists recorded changes", rowCount >= 3, rowCount);
+  check("feed lists recorded changes", rowCount === feedCount, rowCount + " vs " + feedCount);
   const firstSummary = await page.textContent("#view-updates .update-row .update-what");
   const firstUser = await page.textContent("#view-updates .update-row .update-who");
   check("feed shows a human summary per entry", firstSummary.trim().length > 10, firstSummary);

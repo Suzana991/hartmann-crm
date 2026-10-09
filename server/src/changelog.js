@@ -120,6 +120,7 @@ function projectDiff(oldData, nextData, items) {
   const reenabled = [];
   const stageMoves = [];
   const agreementMoves = [];
+  const revokedSteps = [];
   for (const p of nextData.projects || []) {
     const prev = oldMap.get(p.id);
     if (!prev) { added.push(p.id); continue; }
@@ -129,6 +130,9 @@ function projectDiff(oldData, nextData, items) {
     if ((prev.deliveryStage || "") !== (p.deliveryStage || "")) {
       stageMoves.push(p.name + (p.deliveryStage ? " moved to delivery stage" : " left delivery stage"));
     }
+    const kept = new Set((p.stageHistory || []).map(function (h) { return h.id; }));
+    const revN = (prev.stageHistory || []).filter(function (h) { return !kept.has(h.id); }).length;
+    if (revN > 0) revokedSteps.push("Revoked " + revN + " delivery step" + (revN === 1 ? "" : "s") + " on " + p.name);
     const prevAg = prev.agreement && prev.agreement.status;
     const nextAg = p.agreement && p.agreement.status;
     if ((prevAg || "not_started") !== (nextAg || "not_started")) {
@@ -149,6 +153,8 @@ function projectDiff(oldData, nextData, items) {
   for (const s of stageMoves.slice(0, 3)) items.push(s);
   if (stageMoves.length > 3) items.push("and " + (stageMoves.length - 3) + " more delivery-stage change" + (stageMoves.length - 3 === 1 ? "" : "s"));
   for (const a of agreementMoves.slice(0, 2)) items.push(a);
+  for (const r of revokedSteps.slice(0, 3)) items.push(r);
+  if (revokedSteps.length > 3) items.push("and " + (revokedSteps.length - 3) + " more project" + (revokedSteps.length - 3 === 1 ? "" : "s") + " with revoked delivery steps");
 
   const oldEng = new Map();
   const newEng = new Map();
