@@ -5476,20 +5476,11 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "onboarding",
+      "deliveryStage": null,
       "lead": "",
       "milestones": [],
       "stageNotes": {},
-      "stageHistory": [
-        {
-          "id": "mv1k7sbbd8zcwj",
-          "from": null,
-          "to": "onboarding",
-          "date": "2026-10-10",
-          "by": "Suzana",
-          "note": "live revoke check"
-        }
-      ],
+      "stageHistory": [],
       "agreement": {
         "status": "not_started",
         "sentDate": "",
