@@ -78,6 +78,15 @@ window.Store = (function () {
     return result;
   }
 
+  async function loadChanges() {
+    try {
+      return await request("GET", "/api/changelog");
+    } catch (e) {
+      if (e.status === 404) return { items: [], dataSha: null };
+      throw e;
+    }
+  }
+
   function currentSha() {
     return sha;
   }
@@ -115,6 +124,7 @@ window.Store = (function () {
       const result = await request("PUT", "/api/data", { data: state, baseSha: sha });
       sha = result.sha;
       emitStatus("saved", "Saved " + new Date().toLocaleTimeString());
+      if (ctx && ctx.onSaved) ctx.onSaved();
       if (dirty) {
         debounceTimer = setTimeout(function () { flush(); }, 300);
       }
@@ -155,6 +165,7 @@ window.Store = (function () {
     setToken: setToken,
     clearToken: clearToken,
     load: load,
+    loadChanges: loadChanges,
     currentSha: currentSha,
     setSha: setSha,
     init: init,
