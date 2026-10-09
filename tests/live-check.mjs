@@ -75,6 +75,17 @@ async function main() {
   const KEY = fs.readFileSync(KEY_FILE, "utf8").trim();
   const EXPECT = JSON.parse(fs.readFileSync(EXPECT_FILE, "utf8"));
 
+  async function curSha() {
+    const d = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
+    return d.sha;
+  }
+  async function waitSha(prev, desc) {
+    await waitFor(async () => {
+      const d = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
+      return !!d.sha && d.sha !== prev;
+    }, 20000, "server sha changed after " + desc);
+  }
+
   console.log("--- deployed frontend files ---");
   const frontendTexts = {};
   for (const f of FRONTEND_FILES) {
@@ -140,6 +151,10 @@ async function main() {
   check("no login form on live site", (await pageInvalid.locator("#login-token").count()) === 0);
   await ctxInvalid.close();
 
+  await waitFor(async () => {
+    const d = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
+    return d.data && d.data.schemaVersion === 3;
+  }, 25000, "server data migrated to schema v3");
   const apiNow = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
   const st = apiNow.data;
   check("expected investor count", st.investors.length === EXPECT.investors, st.investors.length + " vs " + EXPECT.investors);
@@ -147,9 +162,18 @@ async function main() {
   const contactCount = st.investors.reduce((n, i) => n + i.contacts.length, 0);
   check("expected contact count", contactCount === EXPECT.contacts, contactCount + " vs " + EXPECT.contacts);
   check("expected task count", st.tasks.length === EXPECT.tasks, st.tasks.length + " vs " + EXPECT.tasks);
-  check("data stored as schema v2", st.schemaVersion === 2, st.schemaVersion);
+  check("data stored as schema v3", st.schemaVersion === 3, st.schemaVersion);
+  check("task templates seeded", Array.isArray(st.taskTemplates) && st.taskTemplates.length > 0,
+    Array.isArray(st.taskTemplates) ? st.taskTemplates.length : "missing");
+  check("activities array present for v3", Array.isArray(st.activities), typeof st.activities);
   check("legacy backup preserved on server", !!(st.legacyBackup && Object.keys(st.legacyBackup).length > 0));
   check("migration report stored", !!(st.migrationReport && st.migrationReport.counts));
+
+  check("calendar view in navigation", (await page.locator('[data-nav="calendar"]').count()) === 1);
+  await page.click('[data-nav="tracker"]');
+  await page.waitForSelector("#view-tracker .stage-strip", { timeout: 10000 });
+  const stageSegs = await page.locator("#view-tracker .stage-seg").count();
+  check("delivery stage strip rendered live", stageSegs === 8, stageSegs);
 
   await page.click('[data-nav="directory"]');
   await page.waitForSelector("#view-directory .data-table", { timeout: 10000 });
@@ -183,12 +207,13 @@ async function main() {
   await page.waitForSelector("#modal-backdrop:not(.hidden)");
   await page.fill('#modal-body input[name="name"]', MARKER + " Contact");
   await page.fill('#modal-body input[name="email"]', MARKER.toLowerCase() + "@example.com");
+  const shaBeforeContact = await curSha();
   await page.click("#modal-submit");
   await waitFor(async () => {
     const texts = await page.locator("#detail-body .contact-primary").allTextContents();
     return texts.some((t) => t.indexOf(MARKER) !== -1);
   }, 8000, "temp contact in drawer");
-  await waitSaved(page);
+  await waitSha(shaBeforeContact, "contact add");
   await page.reload({ waitUntil: "networkidle" });
   await waitReady(page);
   await page.click('[data-nav="directory"]');
@@ -199,13 +224,14 @@ async function main() {
   const afterReload = await page.locator("#detail-body .contact-primary").allTextContents();
   check("temp contact survived reload", afterReload.some((t) => t.indexOf(MARKER) !== -1), afterReload.join(";"));
   const markerCard = page.locator("#detail-body .contact-card").filter({ hasText: MARKER }).first();
+  const shaBeforeRemove = await curSha();
   await markerCard.locator('[data-action="remove-contact"]').click();
   page.once("dialog", (d) => d.accept().catch(() => {}));
   await waitFor(async () => {
     const texts = await page.locator("#detail-body .contact-primary").allTextContents();
     return !texts.some((t) => t.indexOf(MARKER) !== -1);
   }, 8000, "temp contact removed");
-  await waitSaved(page);
+  await waitSha(shaBeforeRemove, "contact remove");
   check("temp contact removed cleanly", true);
   await page.click("#detail-close");
 
@@ -214,25 +240,27 @@ async function main() {
   await page.click("#primary-action-btn");
   await page.waitForSelector("#modal-backdrop:not(.hidden)");
   await page.fill('#modal-body input[name="title"]', MARKER + " Task A");
+  const shaBeforeTaskA = await curSha();
   await page.click("#modal-submit");
   await waitFor(async () => {
     const t = await page.locator(".task-title").allTextContents();
     return t.some((x) => x.indexOf(MARKER + " Task A") !== -1);
   }, 8000, "temp task A created");
-  await waitSaved(page);
+  await waitSha(shaBeforeTaskA, "task A create");
   await page.reload({ waitUntil: "networkidle" });
   await waitReady(page);
   await page.click('[data-nav="tasks"]');
   const tasksAfter = await page.locator(".task-title").allTextContents();
   check("temp task survived reload", tasksAfter.some((t) => t.indexOf(MARKER + " Task A") !== -1), tasksAfter.join(";"));
   const taskRowA = page.locator(".task-row").filter({ hasText: MARKER + " Task A" }).first();
+  const shaBeforeDeleteA = await curSha();
   await taskRowA.locator('[data-action="delete-task"]').click();
   page.once("dialog", (d) => d.accept().catch(() => {}));
   await waitFor(async () => {
     const t = await page.locator(".task-title").allTextContents();
     return !t.some((x) => x.indexOf(MARKER + " Task A") !== -1);
   }, 8000, "temp task A deleted");
-  await waitSaved(page);
+  await waitSha(shaBeforeDeleteA, "task A delete");
   check("temp task deleted cleanly", true);
 
   console.log("--- conflict handling (two sessions) ---");
@@ -249,12 +277,13 @@ async function main() {
   await pageB.click("#primary-action-btn");
   await pageB.waitForSelector("#modal-backdrop:not(.hidden)");
   await pageB.fill('#modal-body input[name="title"]', MARKER + " Task B-first");
+  const shaBeforeB = await curSha();
   await pageB.click("#modal-submit");
   await waitFor(async () => {
     const t = await pageB.locator(".task-title").allTextContents();
     return t.some((x) => x.indexOf(MARKER + " Task B-first") !== -1);
   }, 8000, "B task created");
-  await waitSaved(pageB);
+  await waitSha(shaBeforeB, "B task create");
 
   await page.click("#primary-action-btn");
   await page.waitForSelector("#modal-backdrop:not(.hidden)");
@@ -271,13 +300,14 @@ async function main() {
     tasksAfterConflict.join(";"));
 
   const taskRowB = page.locator(".task-row").filter({ hasText: MARKER + " Task B-first" }).first();
+  const shaBeforeDeleteB = await curSha();
   await taskRowB.locator('[data-action="delete-task"]').click();
   page.once("dialog", (d) => d.accept().catch(() => {}));
   await waitFor(async () => {
     const t = await page.locator(".task-title").allTextContents();
     return !t.some((x) => x.indexOf(MARKER) !== -1);
   }, 8000, "all temp tasks removed");
-  await waitSaved(page);
+  await waitSha(shaBeforeDeleteB, "B task delete");
 
   console.log("--- final cleanup verification ---");
   const finalData = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
