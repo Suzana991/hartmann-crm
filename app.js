@@ -11,21 +11,47 @@ window.App = (function () {
     taskStatus: "",
     taskOwner: "",
     taskProjectOnly: false,
+    taskDue: "",
+    taskKind: "",
+    taskView: "list",
+    myOwner: readMyOwner(),
+    myTasksOnly: false,
     detailInvestorId: null,
-    detailEngagementId: null
+    detailEngagementId: null,
+    calendarAnchor: null,
+    calendarView: "month",
+    calendarOwner: "",
+    calendarKind: "",
+    stageDetail: null,
+    selectedInvestors: []
   };
 
   const VIEW_META = {
     overview: { title: "Overview", primary: "＋ New project", action: "add-project" },
     tracker: { title: "Project tracker", primary: "＋ Add engagement", action: "add-engagement" },
+    calendar: { title: "Calendar", primary: "＋ Add task", action: "add-task" },
     directory: { title: "Investor Directory", primary: "＋ Add investor", action: "add-investor" },
     tasks: { title: "Tasks", primary: "＋ Add task", action: "add-task" }
   };
 
   function el(id) { return document.getElementById(id); }
 
+  function readMyOwner() {
+    let saved = "";
+    try { saved = localStorage.getItem("hartmann-crm-me") || ""; } catch (e) { }
+    return saved === "Suzana" || saved === "Bruno" ? saved : "";
+  }
+
   function emptyState() {
-    return { schemaVersion: 2, investors: [], projects: [], activities: [], tasks: [], activeProjectId: null };
+    return {
+      schemaVersion: 3,
+      investors: [],
+      projects: [],
+      activities: [],
+      tasks: [],
+      taskTemplates: CRM_MIGRATION.defaultTaskTemplates(),
+      activeProjectId: null
+    };
   }
 
   function activeProject() {
@@ -63,6 +89,9 @@ window.App = (function () {
       const p = activeProject();
       title = p ? p.name : "Project tracker";
       subtitle = p ? p.engagements.filter(function (e) { return !e.archived; }).length + " engagements" : "Select or create a project";
+    } else if (ui.view === "calendar") {
+      const items = Views.calendarItems(state, ui);
+      subtitle = items.length + " scheduled item" + (items.length === 1 ? "" : "s");
     } else if (ui.view === "directory") {
       subtitle = state.investors.length + " investors";
     } else if (ui.view === "tasks") {
@@ -82,6 +111,7 @@ window.App = (function () {
     const hadSearchFocus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.input === "search";
     if (ui.view === "overview") container.innerHTML = Views.overview(state, ui);
     else if (ui.view === "tracker") container.innerHTML = Views.tracker(state, ui);
+    else if (ui.view === "calendar") container.innerHTML = Views.calendar(state, ui);
     else if (ui.view === "directory") container.innerHTML = Views.directory(state, ui);
     else if (ui.view === "tasks") container.innerHTML = Views.tasks(state, ui);
     if (hadSearchFocus) {
@@ -111,7 +141,7 @@ window.App = (function () {
       return;
     }
     el("detail-name").textContent = inv.name;
-    const flags = Views.reviewCount(state);
+    const flags = Views.investorReviewCount(state, inv.id);
     el("detail-meta").textContent = (inv.type || "No type") + " · " + inv.contacts.length + " contacts" + (flags ? " · " + flags + " review items" : "");
     el("detail-body").innerHTML = Views.detail(state, inv.id);
     drawer.classList.remove("hidden");
@@ -289,12 +319,29 @@ window.App = (function () {
     return incoming;
   }
 
+  function shiftAnchor(dir) {
+    const anchor = ui.calendarAnchor && U.isValidISODate(ui.calendarAnchor) ? ui.calendarAnchor : U.todayISO();
+    if (ui.calendarView === "month") {
+      const p = U.parseISO(anchor);
+      const target = new Date(p.y, p.m - 1 + dir, 1);
+      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const day = Math.min(p.d, lastDay);
+      ui.calendarAnchor = U.toISO(target.getFullYear(), target.getMonth() + 1, day);
+    } else if (ui.calendarView === "week") {
+      ui.calendarAnchor = U.addDaysISO(anchor, dir * 7);
+    } else {
+      ui.calendarAnchor = U.addDaysISO(anchor, dir * 30);
+    }
+    render();
+  }
+
   const actions = {
     "open-view": function (ds) { switchView(ds.view); },
     "open-project": function (ds) {
       ui.projectId = ds.id;
       ui.view = "tracker";
       ui.search = "";
+      ui.stageDetail = null;
       if (state) state.activeProjectId = ds.id;
       Store.markDirty();
       render();
@@ -392,6 +439,92 @@ window.App = (function () {
       if (!confirm('Delete task "' + t.title + '"?')) return;
       state.tasks = state.tasks.filter(function (x) { return x.id !== ds.id; });
       commit();
+    },
+    "record-outreach": function (ds) { Modals.recordOutreachModal(state, ds.engagementId); },
+    "quick-outreach": function () {
+      Modals.engagementPickerModal(state, function (id) { Modals.recordOutreachModal(state, id, {}); });
+    },
+    "quick-activity": function () { Modals.engagementPickerModal(state); },
+    "edit-activity": function (ds) {
+      const a = state.activities.find(function (x) { return x.id === ds.id; });
+      if (a) Modals.activityEditModal(state, a);
+      else U.toast("Activity not found.", "info");
+    },
+    "delete-activity": function (ds) {
+      const a = state.activities.find(function (x) { return x.id === ds.id; });
+      if (!a) return;
+      if (!confirm("Delete this activity? The summary cannot be recovered.")) return;
+      state.activities = state.activities.filter(function (x) { return x.id !== ds.id; });
+      commit();
+      U.toast("Activity deleted.");
+    },
+    "attention": function (ds) {
+      const f = ds.filter;
+      ui.search = "";
+      if (f === "overdue" || f === "today" || f === "waiting") {
+        ui.taskStatus = f === "waiting" ? "Waiting" : "";
+        ui.taskDue = f === "overdue" ? "overdue" : f === "today" ? "today" : "";
+        ui.taskKind = "";
+        ui.myTasksOnly = false;
+        ui.view = "tasks";
+      } else if (f === "review") {
+        ui.reviewOnly = true;
+        ui.stageFilter = "";
+        ui.view = "tracker";
+      } else if (f === "uncontacted") {
+        ui.stageFilter = "not_contacted";
+        ui.reviewOnly = false;
+        ui.view = "tracker";
+      }
+      render();
+    },
+    "set-stage": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (!project) return;
+      const to = ds.stageId;
+      if (project.deliveryStage === to) {
+        ui.stageDetail = ui.stageDetail === to ? null : to;
+        render();
+        return;
+      }
+      Modals.stageChangeModal(project, to);
+    },
+    "close-stage-detail": function () { ui.stageDetail = null; render(); },
+    "apply-templates": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (project) Modals.templatesApplyModal(state, project, ds.stageId);
+    },
+    "add-stage-task": function (ds) {
+      Modals.taskModal(state, null, { projectId: ds.id, stage: ds.stageId });
+    },
+    "manage-templates": function () { Modals.templatesManageModal(state); },
+    "edit-agreement": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (project) Modals.agreementModal(project, "edit");
+    },
+    "agreement-sent": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (project) Modals.agreementModal(project, "sent");
+    },
+    "agreement-signed": function (ds) {
+      const project = Views.projectById(state, ds.id);
+      if (project) Modals.agreementModal(project, "signed");
+    },
+    "edit-milestones": function (ds) {
+      const project = Views.projectById(state, ds.id || ui.projectId);
+      if (project) Modals.milestonesModal(project);
+      else U.toast("Select a project first.", "info");
+    },
+    "bulk-assign": function () { Modals.assignProjectsModal(state, ui.selectedInvestors.slice()); },
+    "clear-selection": function () { ui.selectedInvestors = []; render(); },
+    "import-investors": function () { Modals.importWizardModal(state, {}); },
+    "cal-prev": function () { shiftAnchor(-1); },
+    "cal-next": function () { shiftAnchor(1); },
+    "cal-today": function () { ui.calendarAnchor = U.todayISO(); render(); },
+    "cal-view": function (ds) { ui.calendarView = ds.calView || "month"; render(); },
+    "task-view": function (ds) { ui.taskView = ds.taskView || "list"; render(); },
+    "calendar-add": function (ds) {
+      Modals.taskModal(state, null, { dueDate: ds.date, projectId: state ? state.activeProjectId : "" });
     },
     "export-json": function () {
       U.downloadBlob(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), "hartmann-crm-backup.json");
@@ -514,12 +647,16 @@ window.App = (function () {
   function commitActivity(payload) {
     const found = Views.findEngagement(state, payload.engagementId);
     if (!found) return;
+    const type = payload.type;
+    const kind = U.activityKindOf(type);
     state.activities.push({
       id: U.uid(),
       engagementId: payload.engagementId,
       date: payload.date,
       undated: !payload.date,
-      type: payload.type,
+      type: type,
+      kind: kind,
+      outreachType: kind === "outreach" && U.OUTREACH_TYPES.indexOf(type) !== -1 ? type : "",
       contactId: payload.contactId,
       teamMember: payload.teamMember,
       summary: payload.summary,
@@ -527,23 +664,339 @@ window.App = (function () {
     });
     if (payload.changeStage) found.engagement.stage = payload.changeStage;
     if (payload.follow && payload.follow.title) {
-      state.tasks.push({
-        id: U.uid(),
+      state.tasks.push(newTask({
         title: payload.follow.title,
         owner: payload.follow.owner || "",
         dueDate: payload.follow.dueDate || "",
-        status: "To do",
-        priority: "",
-        notes: "",
         projectId: found.project.id,
         engagementId: payload.engagementId,
-        contactId: "",
-        reviewFlags: [],
         source: "follow-up"
-      });
+      }));
     }
     commit();
     U.toast(payload.follow && payload.follow.title ? "Activity logged and follow-up scheduled." : "Activity logged.");
+  }
+
+  function newTask(data) {
+    return Object.assign({
+      id: U.uid(),
+      title: "",
+      owner: "",
+      dueDate: "",
+      status: "To do",
+      waitingReason: "",
+      priority: "",
+      notes: "",
+      projectId: "",
+      engagementId: "",
+      contactId: "",
+      stage: "",
+      kind: "task",
+      templateKey: "",
+      legacy: false,
+      source: "",
+      reviewFlags: []
+    }, data);
+  }
+
+  function commitOutreach(payload) {
+    const found = Views.findEngagement(state, payload.engagementId);
+    if (!found) return;
+    state.activities.push({
+      id: U.uid(),
+      engagementId: payload.engagementId,
+      date: payload.date,
+      undated: false,
+      type: payload.outreachType,
+      kind: "outreach",
+      outreachType: payload.outreachType,
+      contactId: payload.contactId,
+      teamMember: payload.teamMember,
+      summary: payload.summary,
+      createdAt: new Date().toISOString()
+    });
+    if (payload.next && payload.next.title) {
+      state.tasks.push(newTask({
+        title: payload.next.title,
+        owner: payload.next.owner || "",
+        dueDate: payload.next.dueDate || "",
+        projectId: found.project.id,
+        engagementId: payload.engagementId,
+        source: "outreach-follow-up"
+      }));
+    }
+    commit();
+    U.toast(payload.next && payload.next.title ? "Outreach recorded and next action scheduled." : "Outreach recorded.");
+  }
+
+  function commitActivityEdit(id, data) {
+    const a = state.activities.find(function (x) { return x.id === id; });
+    if (!a) return;
+    a.date = data.date;
+    a.undated = !data.date;
+    a.type = data.type;
+    a.kind = U.activityKindOf(data.type);
+    a.outreachType = a.kind === "outreach" && U.OUTREACH_TYPES.indexOf(data.type) !== -1 ? data.type : "";
+    a.contactId = data.contactId;
+    a.teamMember = data.teamMember;
+    a.summary = data.summary;
+    commit();
+    U.toast("Activity updated.");
+  }
+
+  function commitAgreement(projectId, payload) {
+    const project = state.projects.find(function (p) { return p.id === projectId; });
+    if (!project) return;
+    const ag = project.agreement || CRM_MIGRATION.defaultAgreement();
+    const before = ag.status;
+    const partial = !!(payload.keepSent || payload.keepSigned);
+    ["status", "sentDate", "sentBy", "signedDate", "docLink", "notes"].forEach(function (k) {
+      if (payload[k] !== undefined) ag[k] = payload[k];
+    });
+    if (before !== ag.status || (partial && payload.notes)) {
+      ag.history = ag.history || [];
+      ag.history.push({
+        id: U.uid(),
+        date: payload.signedDate || payload.sentDate || U.todayISO(),
+        from: before,
+        to: ag.status,
+        by: payload.sentBy || getMyOwner() || "",
+        note: payload.notes || ""
+      });
+    }
+    project.agreement = ag;
+    commit();
+    U.toast("Agreement status: " + U.agreementInfo(ag.status).label + ".");
+  }
+
+  function commitStageChange(projectId, toStageId, meta) {
+    const project = state.projects.find(function (p) { return p.id === projectId; });
+    if (!project) return;
+    const from = project.deliveryStage;
+    project.deliveryStage = toStageId;
+    project.stageHistory = project.stageHistory || [];
+    project.stageHistory.push({
+      id: U.uid(),
+      from: from,
+      to: toStageId,
+      date: meta.date,
+      by: meta.by || "",
+      note: meta.note || ""
+    });
+    commit();
+    const info = U.projectStageInfo(toStageId);
+    const hasTemplates = (state.taskTemplates || []).some(function (t) { return t.stage === toStageId && t.enabled; });
+    if (hasTemplates) {
+      U.toast("Stage set to " + (info ? info.label : toStageId) + " — apply this stage's task templates?", "info");
+      Modals.templatesApplyModal(state, project, toStageId);
+    } else {
+      U.toast("Stage set to " + (info ? info.label : toStageId) + ".");
+    }
+  }
+
+  function commitMilestones(projectId, list) {
+    const project = state.projects.find(function (p) { return p.id === projectId; });
+    if (!project) return;
+    project.milestones = list;
+    commit();
+    U.toast("Milestones saved.");
+  }
+
+  function commitApplyTemplates(projectId, stageId, picks) {
+    const project = state.projects.find(function (p) { return p.id === projectId; });
+    if (!project) return;
+    let created = 0;
+    picks.forEach(function (p) {
+      state.tasks.push(newTask({
+        title: p.template.title,
+        owner: p.owner || "",
+        dueDate: p.due || "",
+        projectId: project.id,
+        stage: stageId,
+        kind: "task",
+        templateKey: stageId + ":" + U.normalizeKey(p.template.title),
+        source: "template"
+      }));
+      created++;
+    });
+    commit();
+    U.toast(created + " task" + (created === 1 ? "" : "s") + " created from templates.");
+  }
+
+  function commitTemplates(list) {
+    state.taskTemplates = list;
+    commit();
+    U.toast("Templates saved.");
+  }
+
+  function commitBulkAssign(projectId, investorIds) {
+    const project = state.projects.find(function (p) { return p.id === projectId; });
+    if (!project) return;
+    let added = 0;
+    let skipped = 0;
+    investorIds.forEach(function (invId) {
+      const inv = Views.investorById(state, invId);
+      if (!inv) return;
+      const dup = project.engagements.find(function (e) { return !e.archived && e.investorId === invId; });
+      if (dup) { skipped++; return; }
+      project.engagements.push({
+        id: U.uid(),
+        investorId: invId,
+        stage: "not_contacted",
+        priority: "",
+        owner: "",
+        contactIds: [],
+        notes: "",
+        archived: false,
+        legacy: null,
+        reviewFlags: []
+      });
+      added++;
+    });
+    ui.selectedInvestors = [];
+    commit();
+    U.toast(added + " assigned to " + project.name + (skipped ? " · " + skipped + " already there" : "") + ".");
+  }
+
+  function applyImportPlan(plan) {
+    const investorsCreated = [];
+    let contactsCreated = 0;
+    let engagementsCreated = 0;
+    let skipped = 0;
+    const projectById = {};
+    state.projects.forEach(function (p) { projectById[p.id] = p; });
+    const dest = plan.destination || "";
+
+    plan.rows.forEach(function (row) {
+      if (row.action === "reject" || row.action === "skip") { skipped++; return; }
+      const d = row.data || {};
+      let inv = row.investorId ? Views.investorById(state, row.investorId) : null;
+      if (!inv) {
+        inv = {
+          id: U.uid(),
+          name: row.name,
+          type: d.type || "",
+          website: "",
+          location: "",
+          preferences: "",
+          notes: "",
+          archived: false,
+          contacts: []
+        };
+        state.investors.push(inv);
+        investorsCreated.push(inv.name);
+      }
+      if ((d.contactName || d.contactEmail) && !inv.contacts.some(function (c) {
+        if (d.contactEmail && c.email) return U.normalizeKey(c.email) === U.normalizeKey(d.contactEmail);
+        return d.contactName && c.name && U.normalizeKey(c.name) === U.normalizeKey(d.contactName);
+      })) {
+        const flags = [];
+        if (d.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.contactEmail)) flags.push("invalid-email-format");
+        inv.contacts.push({
+          id: U.uid(),
+          name: d.contactName || "",
+          title: d.contactTitle || "",
+          email: d.contactEmail || "",
+          phone: d.contactPhone || "",
+          notes: "",
+          isPrimary: inv.contacts.length === 0,
+          reviewFlags: flags
+        });
+        contactsCreated++;
+      }
+      const target = row.projectId ? projectById[row.projectId] : (dest ? projectById[dest] : null);
+      if (!target) return;
+      if (target.engagements.some(function (e) { return !e.archived && e.investorId === inv.id; })) { skipped++; return; }
+
+      const reached = /^(yes|y|true|1|done)$/i.test(String(d.reached || "").trim());
+      const legacy = {
+        reachedOut: reached,
+        whoReachedOut: d.owner || "",
+        dateReachedOut: d.outreachDate || "",
+        response: d.response || "",
+        movingForward: d.movingForward || "",
+        nextSteps: d.nextSteps || ""
+      };
+      const derived = reached ? CRM_MIGRATION.deriveStage(legacy) : { stage: "not_contacted", flags: [] };
+      const engagement = {
+        id: U.uid(),
+        investorId: inv.id,
+        stage: derived.stage,
+        priority: "",
+        owner: legacy.whoReachedOut,
+        contactIds: [],
+        notes: "",
+        archived: false,
+        legacy: legacy,
+        reviewFlags: derived.flags.slice()
+      };
+      if (row.action === "uncertain" && row.suggestion) {
+        engagement.reviewFlags.push('possible-duplicate-name: file row may match "' + row.suggestion + '" — verify or merge manually');
+      }
+      target.engagements.push(engagement);
+      engagementsCreated++;
+      if (reached) {
+        const validDate = d.outreachDate && U.isValidISODate(d.outreachDate) ? d.outreachDate : null;
+        state.activities.push({
+          id: U.uid(),
+          engagementId: engagement.id,
+          date: validDate,
+          undated: !validDate,
+          type: "Other outreach",
+          kind: "outreach",
+          outreachType: "",
+          contactId: null,
+          teamMember: legacy.whoReachedOut || "",
+          summary: "Outreach imported from " + (plan.fileName || "file"),
+          legacy: !validDate,
+          createdAt: new Date().toISOString()
+        });
+        if (!validDate) engagement.reviewFlags.push("imported-outreach-undated: outreach recorded without a valid date — verify");
+      }
+    });
+
+    commit();
+    const msg = investorsCreated.length + " investors created · " + engagementsCreated + " assignments · " + contactsCreated + " contacts" +
+      (skipped ? " · " + skipped + " skipped" : "");
+    U.toast("Import finished: " + msg + ".", investorsCreated.length || engagementsCreated ? "success" : "info");
+  }
+
+  function handleRestoreFile(file) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      let parsed;
+      try { parsed = JSON.parse(reader.result); }
+      catch (e) { U.toast("Could not read file: " + e.message, "error"); return; }
+      let incoming;
+      try {
+        incoming = CRM_MIGRATION.migrate(parsed).state;
+      } catch (e) {
+        U.toast("Cannot restore: " + e.message, "error");
+        return;
+      }
+      if (!confirm("Replace ALL current data with this backup? This cannot be undone from the app (export a backup first).")) return;
+      state = incoming;
+      const first = state.projects.find(function (p) { return !p.archived; });
+      ui.projectId = state.activeProjectId || (first ? first.id : null);
+      ui.detailInvestorId = null;
+      ui.stageDetail = null;
+      ui.selectedInvestors = [];
+      commit();
+      U.toast("Backup restored.", "success");
+    };
+    reader.readAsText(file);
+  }
+
+  function getMyOwner() {
+    return readMyOwner();
+  }
+
+  function setMyOwner(value) {
+    ui.myOwner = value === "Suzana" || value === "Bruno" ? value : "";
+    try {
+      if (ui.myOwner) localStorage.setItem("hartmann-crm-me", ui.myOwner);
+      else localStorage.removeItem("hartmann-crm-me");
+    } catch (e) { }
   }
 
   function commitTask(id, data) {
@@ -552,8 +1005,8 @@ window.App = (function () {
       if (t) Object.assign(t, data);
       U.toast("Task updated.");
     } else {
-      state.tasks.push(Object.assign({ id: U.uid(), reviewFlags: [] }, data));
-      U.toast("Task created.");
+      state.tasks.push(newTask(data));
+      U.toast(data.kind === "appointment" ? "Appointment created." : "Task created.");
     }
     commit();
   }
@@ -564,12 +1017,25 @@ window.App = (function () {
       if (p) p.name = name;
       U.toast("Project renamed.");
     } else {
-      const p = { id: U.uid(), name: name, archived: false, engagements: [] };
+      const p = {
+        id: U.uid(),
+        name: name,
+        archived: false,
+        state: "active",
+        deliveryStage: null,
+        lead: "",
+        milestones: [],
+        stageNotes: {},
+        stageHistory: [],
+        agreement: CRM_MIGRATION.defaultAgreement(),
+        engagements: []
+      };
       state.projects.push(p);
       ui.projectId = p.id;
       state.activeProjectId = p.id;
       ui.view = "tracker";
       ui.search = "";
+      ui.stageDetail = null;
       U.toast("Project created.");
     }
     commit();
@@ -773,6 +1239,7 @@ window.App = (function () {
 
   function wireEvents() {
     document.addEventListener("click", function (event) {
+      if (event.target.closest("[data-stop]")) return;
       const actionTarget = event.target.closest("[data-action]");
       if (actionTarget) {
         const name = actionTarget.dataset.action;
@@ -819,6 +1286,44 @@ window.App = (function () {
       if (kind === "taskStatus") { ui.taskStatus = target.value; render(); return; }
       if (kind === "taskOwner") { ui.taskOwner = target.value; render(); return; }
       if (kind === "taskProjectOnly") { ui.taskProjectOnly = target.checked; render(); return; }
+      if (kind === "taskDue") { ui.taskDue = target.value; render(); return; }
+      if (kind === "taskKind") { ui.taskKind = target.value; render(); return; }
+      if (kind === "myOwner") { setMyOwner(target.value); render(); return; }
+      if (kind === "myTasksOnly") { ui.myTasksOnly = target.checked; render(); return; }
+      if (kind === "calendarOwner") { ui.calendarOwner = target.value; render(); return; }
+      if (kind === "calendarKind") { ui.calendarKind = target.value; render(); return; }
+      if (kind === "select-investor") {
+        const id = target.dataset.id;
+        const set = new Set(ui.selectedInvestors);
+        if (target.checked) set.add(id); else set.delete(id);
+        ui.selectedInvestors = Array.from(set);
+        render();
+        return;
+      }
+      if (kind === "select-all-investors") {
+        const container = el("view-directory");
+        const ids = Array.from(container.querySelectorAll('[data-change="select-investor"]')).map(function (i) { return i.dataset.id; });
+        ui.selectedInvestors = target.checked ? ids : [];
+        render();
+        return;
+      }
+      if (kind === "stageNotes") {
+        const project = Views.projectById(state, target.dataset.projectId);
+        if (project) {
+          project.stageNotes = project.stageNotes || {};
+          project.stageNotes[target.dataset.stageId] = target.value;
+          Store.markDirty();
+        }
+        return;
+      }
+      if (kind === "projectLead") {
+        const project = Views.projectById(state, target.dataset.id);
+        if (project) {
+          project.lead = target.value;
+          commit();
+        }
+        return;
+      }
     });
 
     document.addEventListener("input", function (event) {
@@ -828,6 +1333,51 @@ window.App = (function () {
         ui.search = target.value;
         render();
       }
+    });
+
+    document.addEventListener("dragstart", function (event) {
+      const card = event.target.closest ? event.target.closest(".kanban-card") : null;
+      if (!card) return;
+      event.dataTransfer.setData("text/plain", card.dataset.id);
+      event.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+    });
+
+    document.addEventListener("dragend", function (event) {
+      const card = event.target.closest ? event.target.closest(".kanban-card") : null;
+      if (card) card.classList.remove("dragging");
+      document.querySelectorAll(".kanban-col.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
+    });
+
+    document.addEventListener("dragover", function (event) {
+      const col = event.target.closest ? event.target.closest(".kanban-col") : null;
+      if (!col) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      document.querySelectorAll(".kanban-col.drop-target").forEach(function (c) {
+        if (c !== col) c.classList.remove("drop-target");
+      });
+      col.classList.add("drop-target");
+    });
+
+    document.addEventListener("dragleave", function (event) {
+      const col = event.target.closest ? event.target.closest(".kanban-col") : null;
+      if (col && (!event.relatedTarget || !col.contains(event.relatedTarget))) col.classList.remove("drop-target");
+    });
+
+    document.addEventListener("drop", function (event) {
+      const col = event.target.closest ? event.target.closest(".kanban-col") : null;
+      if (!col || !state) return;
+      event.preventDefault();
+      col.classList.remove("drop-target");
+      const id = event.dataTransfer.getData("text/plain");
+      const task = state.tasks.find(function (t) { return t.id === id; });
+      const status = col.dataset.dropStatus;
+      if (!task || !status || task.status === status) return;
+      task.status = status;
+      if (status !== "Waiting") task.waitingReason = "";
+      commit();
+      U.toast('Task moved to "' + status + '".');
     });
 
     document.addEventListener("keydown", function (event) {
@@ -861,6 +1411,13 @@ window.App = (function () {
     el("import-csv-input").addEventListener("change", function (e) {
       if (e.target.files[0]) handleImportCsv(e.target.files[0]);
       e.target.value = "";
+    });
+    el("import-investors-input").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      if (!state) { U.toast("Load the CRM before importing.", "error"); return; }
+      Modals.importWizardModal(state, { file: file });
     });
   }
 
@@ -901,8 +1458,19 @@ window.App = (function () {
     commitContact: commitContact,
     commitEngagement: commitEngagement,
     commitActivity: commitActivity,
+    commitActivityEdit: commitActivityEdit,
+    commitOutreach: commitOutreach,
+    commitAgreement: commitAgreement,
+    commitStageChange: commitStageChange,
+    commitMilestones: commitMilestones,
+    commitApplyTemplates: commitApplyTemplates,
+    commitTemplates: commitTemplates,
+    commitBulkAssign: commitBulkAssign,
     commitTask: commitTask,
     commitProject: commitProject,
+    applyImportPlan: applyImportPlan,
+    handleRestoreFile: handleRestoreFile,
+    getMyOwner: getMyOwner,
     getState: function () { return state; },
     getUi: function () { return ui; },
     openDetail: openDetail
