@@ -85,6 +85,11 @@ window.App = (function () {
     document.querySelectorAll("[data-nav]").forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.nav === ui.view);
     });
+    document.querySelectorAll(".nav-btm-btn").forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.view === ui.view);
+      if (btn.dataset.view === ui.view) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
     const meta = VIEW_META[ui.view] || VIEW_META.overview;
     let title = meta.title;
     let subtitle = "";
@@ -191,8 +196,33 @@ window.App = (function () {
   function switchView(view) {
     ui.view = view;
     ui.search = "";
+    closeDrawer();
     if (view === "updates") markSeen();
     render();
+  }
+
+  function openDrawer() {
+    const sb = document.querySelector(".sidebar");
+    const bd = el("sidebar-backdrop");
+    const btn = el("drawer-btn");
+    if (sb) sb.classList.add("open");
+    if (bd) bd.classList.remove("hidden");
+    if (btn) btn.setAttribute("aria-expanded", "true");
+  }
+
+  function closeDrawer() {
+    const sb = document.querySelector(".sidebar");
+    const bd = el("sidebar-backdrop");
+    const btn = el("drawer-btn");
+    if (sb) sb.classList.remove("open");
+    if (bd) bd.classList.add("hidden");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleDrawer() {
+    const sb = document.querySelector(".sidebar");
+    if (sb && sb.classList.contains("open")) closeDrawer();
+    else openDrawer();
   }
 
   function seenTs() {
@@ -218,11 +248,12 @@ window.App = (function () {
   }
 
   function updateBadge() {
-    const badge = el("updates-badge");
-    if (!badge) return;
     const n = unreadCount();
-    badge.textContent = n;
-    badge.classList.toggle("hidden", n === 0 || !changes.loaded);
+    const hide = n === 0 || !changes.loaded;
+    document.querySelectorAll("#updates-badge, [data-badge='updates']").forEach(function (badge) {
+      badge.textContent = n;
+      badge.classList.toggle("hidden", hide);
+    });
   }
 
   function fmtChangeTime(iso) {
@@ -640,11 +671,15 @@ window.App = (function () {
       bootstrap();
     },
     "toggle-theme": function () {
-      const isLight = document.documentElement.classList.toggle("light");
-      el("theme-toggle-label").textContent = isLight ? "Dark UI" : "Light UI";
-      try { localStorage.setItem("hartmann-crm-theme", isLight ? "light" : "dark"); } catch (e) { }
+      const order = ["system", "light", "dark"];
+      const current = themePref();
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      applyTheme(next);
+      try { localStorage.setItem("hartmann-crm-theme", next); } catch (e) { }
     },
     "toggle-menu": function () { el("menu").classList.toggle("hidden"); },
+    "toggle-drawer": function () { toggleDrawer(); },
+    "close-drawer": function () { closeDrawer(); },
     "conflict-reload": function () {
       const payload = actions._conflictPayload;
       hideConflict();
@@ -1526,13 +1561,24 @@ window.App = (function () {
     });
   }
 
-  function initTheme() {
+  function themePref() {
     let saved = null;
     try { saved = localStorage.getItem("hartmann-crm-theme"); } catch (e) { }
-    if (saved === "light") {
-      document.documentElement.classList.add("light");
-      el("theme-toggle-label").textContent = "Dark UI";
-    }
+    return (saved === "light" || saved === "dark") ? saved : "system";
+  }
+
+  function applyTheme(pref) {
+    const root = document.documentElement;
+    root.classList.toggle("light", pref === "light");
+    root.classList.toggle("dark", pref === "dark");
+    const next = pref === "system" ? "light" : (pref === "light" ? "dark" : "system");
+    const label = next === "light" ? "Light UI" : (next === "dark" ? "Dark UI" : "System UI");
+    const a = el("theme-toggle-label"); if (a) a.textContent = label;
+    const b = el("theme-toggle-label-menu"); if (b) b.textContent = label;
+  }
+
+  function initTheme() {
+    applyTheme(themePref());
   }
 
   function init() {
@@ -1580,7 +1626,8 @@ window.App = (function () {
     getMyOwner: getMyOwner,
     getState: function () { return state; },
     getUi: function () { return ui; },
-    openDetail: openDetail
+    openDetail: openDetail,
+    closeDrawer: closeDrawer
   };
 })();
 

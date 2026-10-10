@@ -43,6 +43,7 @@ window.Modals = (function () {
 
   function open(title, bodyHtml, onSubmit, submitLabel, opts) {
     opts = opts || {};
+    if (window.App && window.App.closeDrawer) window.App.closeDrawer();
     document.getElementById("modal-title").textContent = title;
     bodyEl().innerHTML = bodyHtml;
     setSubmitLabel(submitLabel || "Save");

@@ -12,19 +12,38 @@ html,body{margin:0;padding:0}
   --bg:#0e1116;--bg2:#151a21;--panel:#1a202a;--panel2:#212a37;--border:#2b3544;
   --text:#e7ecf3;--muted:#8d99ab;--accent:#4f8cff;--accent2:#3d74e0;
   --danger:#ff6b6b;--warn:#f5b942;--ok:#3ddc97;--info:#7cc4ff;
-  --chip-bg:rgba(255,255,255,.06);--shadow:0 14px 40px rgba(0,0,0,.45)
+  --chip-bg:rgba(255,255,255,.06);--shadow:0 14px 40px rgba(0,0,0,.45);
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;--radius-xl:16px;--blur:14px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)
 }
+html{--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
 html.light{
   --bg:#f3f5f9;--bg2:#ffffff;--panel:#ffffff;--panel2:#eef1f7;--border:#dce2ec;
-  --text:#19212e;--muted:#5f6b7d;--chip-bg:rgba(0,0,0,.05);--shadow:0 14px 40px rgba(25,40,70,.14)
+  --text:#19212e;--muted:#5f6b7d;--chip-bg:rgba(0,0,0,.05);--shadow:0 14px 40px rgba(0,0,0,.12)
 }
-body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+@media (prefers-color-scheme: light){
+  html:not(.dark):not(.light){
+    --bg:#f3f5f9;--bg2:#ffffff;--panel:#ffffff;--panel2:#eef1f7;--border:#dce2ec;
+    --text:#19212e;--muted:#5f6b7d;--chip-bg:rgba(0,0,0,.05);--shadow:0 14px 40px rgba(0,0,0,.12)
+  }
+}
 button{font:inherit;color:inherit;cursor:pointer}
+button, a, input, select, textarea{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.primary-btn,.ghost-btn,.icon-btn,.mini-add,.nav-btn,.nav-btm-btn,.task-row,.attention-card,.project-row,.link-btn{transition:background-color .18s ease,border-color .18s ease,color .18s ease,transform .12s ease,box-shadow .18s ease}
+.primary-btn:active,.ghost-btn:active,.icon-btn:active,.mini-add:active,.nav-btm-btn:active{transform:translateY(1px)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
 h1,h2,h3{font-weight:700}
 .hidden{display:none !important}
 .app{display:flex;min-height:100vh;align-items:stretch}
 
-.sidebar{width:252px;flex:0 0 252px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px;padding:14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .sidebar{width:260px;flex:0 0 260px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px;padding:14px;position:sticky;top:0;height:100vh;overflow-y:auto;backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur))}
 .brand{display:flex;gap:10px;align-items:center}
 .brand-mark{width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#7b5cff);display:grid;place-items:center;font-weight:800;color:#fff}
 .brand-name{font-weight:700;font-size:14.5px;line-height:1.1}
@@ -53,7 +72,7 @@ h1,h2,h3{font-weight:700}
 .file-btn input{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px 12px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:20}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px 12px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--bg2) 92%,rgba(0,0,0,0) 100%);backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur));position:sticky;top:0;z-index:20}
 .topbar h1{margin:0;font-size:19px}
 .subtitle{font-size:12.5px;color:var(--muted)}
 .topbar-actions{display:flex;gap:8px;align-items:center;position:relative}
@@ -74,12 +93,12 @@ h1,h2,h3{font-weight:700}
 .view{padding:18px 22px 44px;min-width:0}
 .banner{background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.4);color:var(--text);padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}
 .card-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
-.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
-.stat-value{font-size:28px;font-weight:800;line-height:1.15}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.stat-value{font-size:28px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat-label{font-size:12px;color:var(--muted)}
 .stat-card.alert{border-color:rgba(255,107,107,.5)}
 .stat-card.alert .stat-value{color:var(--danger)}
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.14)}
 .panel-head{padding:12px 16px;border-bottom:1px solid var(--border)}
 .panel-head h3{margin:0;font-size:14px}
 .panel-body{padding:10px 16px 14px}
@@ -142,9 +161,9 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 .task-sub{font-size:12px;color:var(--muted)}
 .row-actions{display:flex;gap:6px;flex:0 0 auto}
 
-.overlay{position:fixed;inset:0;background:rgba(4,8,14,.62);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+.overlay{position:fixed;inset:0;background:rgba(4,8,14,.6);backdrop-filter:saturate(140%) blur(6px);-webkit-backdrop-filter:saturate(140%) blur(6px);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
 #detail-backdrop{z-index:35}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:min(580px,100%);background:var(--bg2);border-left:1px solid var(--border);z-index:36;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.drawer{position:fixed;top:0;right:0;height:100dvh;width:min(600px,calc(100% - 24px));background:var(--bg2);border-left:1px solid var(--border);z-index:36;display:flex;flex-direction:column;box-shadow:var(--shadow);backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur))}
 .drawer-head{display:flex;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);align-items:flex-start}
 .drawer-head h2{margin:0;font-size:17px}
 .drawer-body{overflow-y:auto;padding:14px 18px 48px;display:flex;flex-direction:column;gap:14px}
@@ -179,7 +198,7 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 .activity-date{color:var(--muted);font-size:11.5px;min-width:76px}
 .activity-meta{grid-column:1 / -1;color:var(--muted);font-size:11.5px}
 
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(660px,100%);max-height:min(90vh,94dvh);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow)}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);width:min(680px,calc(100% - 24px));max-height:min(92dvh,92vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow)}
 .modal>#modal-form{display:flex;flex-direction:column;min-height:0;max-height:100%;overflow:hidden;flex:1}
 .modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex:0 0 auto;background:var(--bg2)}
 .modal-head h2{margin:0;font-size:16px}
@@ -213,7 +232,7 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 .count-box{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px;color:var(--muted)}
 .count-box strong{display:block;font-size:19px;color:var(--text)}
 
-.card-dialog{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:min(460px,100%);box-shadow:var(--shadow)}
+.card-dialog{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:24px;width:min(480px,calc(100% - 32px));box-shadow:var(--shadow)}
 .card-dialog h2{margin:0 0 8px;font-size:17px}
 .card-dialog p{color:var(--muted);font-size:13px;margin:0 0 16px}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
@@ -326,17 +345,38 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
 }
 @media (max-width:760px){
   .app{flex-direction:column}
-  .sidebar{width:auto;height:auto;position:static;flex:none;border-right:none;border-bottom:1px solid var(--border)}
-  .projects-list{max-height:130px}
-  .view{padding:14px 14px 40px}
-  .topbar{padding:12px 14px 10px;flex-wrap:wrap}
+  .sidebar{display:flex;position:fixed;top:0;left:0;height:100dvh;width:min(300px,86vw);z-index:45;transform:translateX(-101%);transition:transform .28s cubic-bezier(.32,.72,0,1);border-right:1px solid var(--border)}
+  .sidebar.open{transform:none;box-shadow:var(--shadow)}
+  .projects-list{max-height:none}
+  .view{padding:12px 12px calc(72px + var(--safe-bottom)) 12px}
+  .topbar{padding:10px 12px 8px;flex-wrap:wrap;top:var(--safe-top);gap:10px}
+  .topbar .drawer-btn{display:inline-flex;align-items:center;justify-content:center}
   .pipe-row{grid-template-columns:110px 1fr 34px}
+  .primary-btn{padding:8px 14px;font-size:13px}
+  .table-wrap{border-radius:var(--radius-lg)}
+  .panel,.stat-card,.attention-card,.project-head,.detail-section{border-radius:var(--radius-lg)}
+  .task-row{padding:9px 12px;border-radius:var(--radius-md)}
+  .mini-row{font-size:12.8px}
+  .modal{width:calc(100% - 16px);max-height:92dvh;border-radius:var(--radius-lg)}
+  .drawer{width:calc(100% - 16px);right:8px;top:8px;height:calc(100dvh - 16px);border-radius:var(--radius-lg);border-left:none}
+  .toasts{right:8px;bottom:calc(72px + var(--safe-bottom));left:8px;max-width:none}
+}
+.drawer-btn{display:none;font-size:18px}
+.sidebar-backdrop{position:fixed;inset:0;background:rgba(4,8,14,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:44}
+.sidebar.open{transform:none;box-shadow:var(--shadow)}
+.nav-bottom{display:none}
+@media (max-width:760px){
+  .nav-bottom{display:flex;position:fixed;left:0;right:0;bottom:0;padding:6px 8px calc(6px + var(--safe-bottom));background:linear-gradient(180deg,rgba(0,0,0,0) 0%,var(--bg2) 40%);backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur));border-top:1px solid var(--border);z-index:25;gap:4px}
+  .nav-btm-btn{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:none;color:var(--muted);font-size:10.5px;padding:6px 2px;border-radius:var(--radius-md);min-height:48px}
+  .nav-btm-btn .nb-icon{font-size:16px;line-height:1}
+  .nav-btm-btn .nav-badge{position:absolute;top:3px;left:50%;transform:translateX(6px);margin-left:0;min-width:15px;height:15px;line-height:15px;font-size:10px;padding:0 4px}
+  .nav-btm-btn.active{color:var(--accent);background:var(--chip-bg)}
 }
 </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" aria-label="Main navigation">
     <div class="brand">
       <div class="brand-mark">H</div>
       <div>
@@ -344,18 +384,18 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
         <div class="brand-sub">Outreach Tracker</div>
       </div>
     </div>
-    <nav class="nav">
-      <button class="nav-btn active" data-nav="overview" data-action="open-view" data-view="overview">Overview</button>
-      <button class="nav-btn" data-nav="tracker" data-action="open-view" data-view="tracker">Projects</button>
-      <button class="nav-btn" data-nav="calendar" data-action="open-view" data-view="calendar">Calendar</button>
-      <button class="nav-btn" data-nav="directory" data-action="open-view" data-view="directory">Investor Directory</button>
-      <button class="nav-btn" data-nav="tasks" data-action="open-view" data-view="tasks">Tasks</button>
-      <button class="nav-btn" data-nav="updates" data-action="open-view" data-view="updates">Updates<span id="updates-badge" class="nav-badge hidden"></span></button>
+    <nav class="nav" aria-label="Primary">
+      <button class="nav-btn active" data-nav="overview" data-action="open-view" data-view="overview" aria-label="Overview">Overview</button>
+      <button class="nav-btn" data-nav="tracker" data-action="open-view" data-view="tracker" aria-label="Projects">Projects</button>
+      <button class="nav-btn" data-nav="calendar" data-action="open-view" data-view="calendar" aria-label="Calendar">Calendar</button>
+      <button class="nav-btn" data-nav="directory" data-action="open-view" data-view="directory" aria-label="Investor Directory">Investor Directory</button>
+      <button class="nav-btn" data-nav="tasks" data-action="open-view" data-view="tasks" aria-label="Tasks">Tasks</button>
+      <button class="nav-btn" data-nav="updates" data-action="open-view" data-view="updates" aria-label="Updates">Updates<span id="updates-badge" class="nav-badge hidden"></span></button>
     </nav>
-    <div class="side-section-head"><span>Projects</span><button class="mini-add" data-action="add-project" title="New project">+</button></div>
-    <div id="projects-list" class="projects-list"></div>
+    <div class="side-section-head"><span>Projects</span><button class="mini-add" data-action="add-project" title="New project" aria-label="New project">+</button></div>
+    <div id="projects-list" class="projects-list" aria-label="Projects list"></div>
     <div class="side-foot">
-      <div id="save-status" class="save-status" title="Click to retry a failed save"><span id="save-status-text">Not signed in</span></div>
+      <div id="save-status" class="save-status" title="Click to retry a failed save" aria-live="polite"><span id="save-status-text">Not signed in</span></div>
       <div class="side-actions">
         <button class="ghost-btn" data-action="export-json">JSON</button>
         <button class="ghost-btn" data-action="export-csv">CSV</button>
@@ -367,9 +407,11 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
       </div>
     </div>
   </aside>
+  <div id="sidebar-backdrop" class="sidebar-backdrop hidden" data-action="close-drawer"></div>
 
   <div class="main">
     <header class="topbar">
+      <button class="icon-btn drawer-btn" id="drawer-btn" data-action="toggle-drawer" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
       <div class="topbar-titles">
         <h1 id="view-title">Overview</h1>
         <div id="view-subtitle" class="subtitle"></div>
@@ -394,6 +436,15 @@ html.light .stage-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.04)}
     <section id="view-updates" class="view hidden"></section>
   </div>
 </div>
+
+<nav class="nav-bottom" aria-label="Bottom navigation">
+  <button class="nav-btm-btn active" data-action="open-view" data-view="overview" aria-label="Overview"><span class="nb-icon">▤</span><span>Overview</span></button>
+  <button class="nav-btm-btn" data-action="open-view" data-view="tracker" aria-label="Projects"><span class="nb-icon">▢</span><span>Projects</span></button>
+  <button class="nav-btm-btn" data-action="open-view" data-view="calendar" aria-label="Calendar"><span class="nb-icon">📅</span><span>Calendar</span></button>
+  <button class="nav-btm-btn" data-action="open-view" data-view="directory" aria-label="Directory"><span class="nb-icon">👥</span><span>Directory</span></button>
+  <button class="nav-btm-btn" data-action="open-view" data-view="tasks" aria-label="Tasks"><span class="nb-icon">✓</span><span>Tasks</span></button>
+  <button class="nav-btm-btn" data-action="open-view" data-view="updates" aria-label="Updates"><span class="nb-icon">🔔</span><span class="nav-badge hidden" data-badge="updates"></span><span>Updates</span></button>
+</nav>
 
 <div id="detail-backdrop" class="overlay hidden"></div>
 <aside id="detail-drawer" class="drawer hidden">
