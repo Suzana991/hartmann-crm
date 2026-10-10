@@ -3435,7 +3435,18 @@
     {
       "id": "mv2z5g7ufvbw6l",
       "archived": false,
-      "contacts": [],
+      "contacts": [
+        {
+          "id": "mv2z79lk2mplqu",
+          "reviewFlags": [],
+          "name": "Francis Laferriere",
+          "title": "Private Equity | Investor | Builder",
+          "email": "flaferriere@celinacapital.com",
+          "phone": "",
+          "notes": "",
+          "isPrimary": false
+        }
+      ],
       "name": "Celina Capital",
       "type": "Direct Lender",
       "website": "https://celinacapital.com/",
