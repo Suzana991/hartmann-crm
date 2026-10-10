@@ -220,6 +220,7 @@ async function main() {
   await page.click('[data-nav="overview"]');
 
   console.log("--- JSON export ---");
+  await page.click(".side-maintenance > summary");
   const dlPromise = page.waitForEvent("download", { timeout: 8000 });
   await page.click('.side-actions [data-action="export-json"]');
   const dl = await dlPromise;
