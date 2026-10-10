@@ -4850,7 +4850,7 @@
         }
       ],
       "state": "active",
-      "deliveryStage": "due_diligence",
+      "deliveryStage": "materials_preparation",
       "lead": "",
       "milestones": [],
       "stageNotes": {},
@@ -4870,6 +4870,14 @@
           "date": "2026-10-12",
           "by": "Suzana",
           "note": "Waiting for Ron to send us the final updates"
+        },
+        {
+          "id": "mv2zpn7wulz2kw",
+          "from": "due_diligence",
+          "to": "materials_preparation",
+          "date": "2026-10-12",
+          "by": "",
+          "note": ""
         }
       ],
       "agreement": {
