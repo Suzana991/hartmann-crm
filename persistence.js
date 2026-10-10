@@ -87,6 +87,19 @@ window.Store = (function () {
     }
   }
 
+  async function loadChat(since) {
+    const q = Number.isFinite(Number(since)) && Number(since) > 0 ? "?since=" + encodeURIComponent(Number(since)) : "";
+    return await request("GET", "/api/chat" + q);
+  }
+
+  async function sendChat(payload) {
+    return await request("POST", "/api/chat", payload || {});
+  }
+
+  async function markChatRead(seq) {
+    return await request("POST", "/api/chat/read", { seq: Number(seq) || 0 });
+  }
+
   function currentSha() {
     return sha;
   }
@@ -159,6 +172,14 @@ window.Store = (function () {
     return dirty;
   }
 
+  function isBusy() {
+    return dirty || inFlight || debounceTimer !== null || retryTimer !== null;
+  }
+
+  function isSaving() {
+    return inFlight || debounceTimer !== null;
+  }
+
   return {
     isConfigured: isConfigured,
     hasToken: hasToken,
@@ -166,12 +187,17 @@ window.Store = (function () {
     clearToken: clearToken,
     load: load,
     loadChanges: loadChanges,
+    loadChat: loadChat,
+    sendChat: sendChat,
+    markChatRead: markChatRead,
     currentSha: currentSha,
     setSha: setSha,
     init: init,
     markDirty: markDirty,
     flush: flush,
     flushNow: flushNow,
-    isDirty: isDirty
+    isDirty: isDirty,
+    isBusy: isBusy,
+    isSaving: isSaving
   };
 })();

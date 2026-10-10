@@ -434,14 +434,82 @@ html.light .stage-seg.current .seg-title{color:color-mix(in srgb, var(--seg-colo
 .drawer-btn{display:none;font-size:18px}
 .sidebar-backdrop{position:fixed;inset:0;background:rgba(4,8,14,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:44}
 .sidebar.open{transform:none;box-shadow:var(--shadow)}
-.nav-bottom{display:none}
+.nav-bottom{display:none;z-index:30}
 @media (max-width:760px){
-  .nav-bottom{display:flex;position:fixed;left:0;right:0;bottom:0;padding:6px 8px calc(6px + var(--safe-bottom));background:linear-gradient(180deg,rgba(0,0,0,0) 0%,var(--bg2) 40%);backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur));border-top:1px solid var(--border);z-index:25;gap:4px}
+  .nav-bottom{display:flex;position:fixed;left:0;right:0;bottom:0;padding:6px 8px calc(6px + var(--safe-bottom));background:linear-gradient(180deg,rgba(0,0,0,0) 0%,var(--bg2) 40%);backdrop-filter:saturate(140%) blur(var(--blur));-webkit-backdrop-filter:saturate(140%) blur(var(--blur));border-top:1px solid var(--border);z-index:30;gap:4px}
+  .chat-fab{right:12px;bottom:calc(72px + var(--safe-bottom))}
+}
   .nav-btm-btn{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:none;color:var(--muted);font-size:10.5px;padding:6px 2px;border-radius:var(--radius-md);min-height:48px}
   .nav-btm-btn .nb-icon{font-size:16px;line-height:1}
   .nav-btm-btn .nav-badge{position:absolute;top:3px;left:50%;transform:translateX(6px);margin-left:0;min-width:15px;height:15px;line-height:15px;font-size:10px;padding:0 4px}
   .nav-btm-btn.active{color:var(--accent);background:var(--chip-bg)}
 }
+
+#sync-banner{position:sticky;top:56px;z-index:20;background:var(--warn-bg);border-bottom:1px solid var(--warn-border);color:var(--warn-text);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+#sync-banner .link-btn{background:none;border:none;color:inherit;text-decoration:underline;padding:0;font-size:inherit;cursor:pointer}
+#sync-banner.hidden{display:none}
+
+#notif-panel{position:absolute;top:56px;right:0;width:320px;max-width:calc(100% - 24px);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:50;overflow:hidden;display:flex;flex-direction:column}
+#notif-panel.hidden{display:none}
+#notif-panel .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600}
+#notif-panel .panel-head .icon-btn{color:var(--muted)}
+#notif-list{overflow:auto;max-height:420px;padding:4px}
+.notif-row{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.notif-row:last-child{border-bottom:none}
+.notif-row.unread{background:var(--chip-bg)}
+.notif-line{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.notif-who{font-weight:600;color:var(--accent)}
+.notif-when{font-size:11px;color:var(--muted);white-space:nowrap}
+.notif-what{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--text)}
+.notif-proj{font-size:11px;background:var(--chip-bg);padding:1px 6px;border-radius:999px}
+.notif-row .link-btn{font-size:11px;padding:2px 8px}
+
+#sync-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--chip-bg);color:var(--muted)}
+#sync-status.live{background:color-mix(in srgb, var(--ok) 15%, var(--chip-bg));color:var(--ok)}
+#sync-status.pending{background:color-mix(in srgb, var(--warn) 15%, var(--chip-bg));color:var(--warn)}
+#sync-status.offline,#sync-status.retry{background:color-mix(in srgb, var(--danger) 15%, var(--chip-bg));color:var(--danger)}
+#sync-status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.chat-fab{position:fixed;right:18px;bottom:80px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--accent-contrast);border:none;box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:40;transition:transform .15s ease,box-shadow .15s ease}
+.chat-fab:hover{transform:scale(1.05);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.chat-fab:active{transform:scale(.98)}
+.chat-fab svg{width:24px;height:24px}
+.chat-badge{position:absolute;top:4px;right:4px;min-width:18px;height:18px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 5px;line-height:1}
+.chat-badge.hidden{display:none}
+body.chat-open .chat-fab{transform:rotate(45deg)}
+
+.chat-panel{position:fixed;right:12px;bottom:78px;width:360px;max-width:calc(100% - 24px);height:520px;max-height:calc(100vh - 100px);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:45;display:flex;flex-direction:column;overflow:hidden}
+.chat-panel.hidden{display:none}
+@media (max-width:480px){
+  .chat-panel{left:12px;right:12px;bottom:12px;height:calc(100vh - 24px);max-height:none;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+  body.chat-open .chat-panel{bottom:0}
+}
+.chat-head{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-head h3{margin:0;font-size:15px;font-weight:600}
+.chat-subtitle{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.chat-messages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.chat-msg{max-width:85%;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.chat-msg.mine{align-self:flex-end}
+.chat-msg-meta{display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px}
+.chat-author{font-weight:600}
+.chat-msg.mine .chat-author{color:var(--accent)}
+.chat-time{color:var(--muted);white-space:nowrap;font-size:10px}
+.chat-text{font-size:13px;line-height:1.5;word-wrap:break-word;background:var(--bg2);padding:8px 10px;border-radius:var(--radius-md)}
+.chat-msg.mine .chat-text{background:var(--accent);color:var(--accent-contrast);border-bottom-right-radius:2px}
+.chat-msg.pending .chat-text{opacity:.7}
+.chat-msg.failed .chat-text{opacity:.7;border:1px solid var(--danger)}
+.chat-msg.failed .chat-time{color:var(--danger)}
+.chat-tag{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;font-size:10.5px;background:var(--chip-bg);color:var(--text);border-radius:999px;border:none;cursor:pointer;transition:background .15s}
+.chat-tag:hover{background:color-mix(in srgb, var(--accent) 15%, var(--chip-bg))}
+.chat-empty{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+.chat-form{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.chat-input{flex:1;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:var(--radius-md);padding:8px 10px;font-size:13px;resize:none;outline:none;min-height:40px;max-height:120px;line-height:1.4}
+.chat-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)}
+.chat-send{width:40px;height:40px;border:none;border-radius:50%;background:var(--accent);color:var(--accent-contrast);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.chat-send:hover{opacity:.9}
+.chat-send svg{width:18px;height:18px}
+
 </style>
 </head>
 <body>
@@ -470,6 +538,7 @@ html.light .stage-seg.current .seg-title{color:color-mix(in srgb, var(--seg-colo
         <div class="workspace-meta"><strong>Hartmann team</strong><span>Shared outreach workspace</span></div>
       </div>
       <div id="save-status" class="save-status" title="Click to retry a failed save" aria-live="polite"><span id="save-status-text">Not signed in</span></div>
+      <div id="sync-status" class="sync-status live" title="Sync status"><span id="sync-status-text">Live</span></div>
       <details class="side-maintenance">
         <summary class="side-section-head" style="cursor:pointer"><span>Maintenance</span><span class="maint-caret" aria-hidden="true">▾</span></summary>
         <div class="side-actions">
@@ -495,6 +564,7 @@ html.light .stage-seg.current .seg-title{color:color-mix(in srgb, var(--seg-colo
       </div>
       <div class="topbar-actions">
         <button class="primary-btn" id="primary-action-btn" data-action="add-project">New project</button>
+        <button class="icon-btn" id="notif-btn" data-action="notif-toggle" aria-label="Notifications" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notif-badge" class="nav-badge hidden"></span></button>
         <button class="icon-btn" id="menu-btn" data-action="toggle-menu" title="Menu">&#8943;</button>
         <div id="menu" class="menu hidden">
           <button data-action="reload-data">Reload from backend</button>
@@ -504,6 +574,11 @@ html.light .stage-seg.current .seg-title{color:color-mix(in srgb, var(--seg-colo
         </div>
       </div>
     </header>
+    <div id="sync-banner" class="banner hidden"><span id="sync-banner-text"></span><button class="link-btn" data-action="sync-refresh" data-stop>Refresh</button></div>
+    <div id="notif-panel" class="panel hidden" role="menu">
+      <div class="panel-head"><h3>Recent changes</h3><button class="icon-btn" data-action="notif-toggle" aria-label="Close">&#10005;</button></div>
+      <div id="notif-list" class="panel-body"></div>
+    </div>
 
     <section id="view-overview" class="view"></section>
     <section id="view-tracker" class="view hidden"></section>
@@ -579,6 +654,21 @@ html.light .stage-seg.current .seg-title{color:color-mix(in srgb, var(--seg-colo
   </div>
 </div>
 
+<button id="chat-fab" class="chat-fab" data-action="chat-toggle" aria-label="Team chat" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M10 10h4"/><path d="M10 14h4"/></svg><span id="chat-badge" class="chat-badge hidden"></span></button>
+<div id="chat-panel" class="chat-panel hidden" role="dialog" aria-label="Team chat">
+  <div class="chat-head">
+    <div>
+      <h3 id="chat-title">Team chat</h3>
+      <div id="chat-subtitle" class="chat-subtitle">No messages yet</div>
+    </div>
+    <button class="icon-btn" data-action="chat-close" aria-label="Close">&#10005;</button>
+  </div>
+  <div id="chat-messages" class="chat-messages"></div>
+  <form id="chat-form" class="chat-form">
+    <textarea id="chat-input" class="chat-input" placeholder="Message your teammate…" rows="1" aria-label="Message"></textarea>
+    <button type="submit" class="chat-send" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+  </form>
+</div>
 <div id="toasts" class="toasts"></div>
 
 <script src="config.js"></script>
