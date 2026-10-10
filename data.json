@@ -5494,6 +5494,18 @@
             "nextSteps": ""
           },
           "reviewFlags": []
+        },
+        {
+          "id": "mv2z5vtwv9avr7",
+          "investorId": "mv2z5g7ufvbw6l",
+          "stage": "not_contacted",
+          "priority": "High",
+          "owner": "",
+          "contactIds": [],
+          "notes": "",
+          "archived": false,
+          "legacy": null,
+          "reviewFlags": []
         }
       ],
       "state": "active",
