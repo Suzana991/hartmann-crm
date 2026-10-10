@@ -181,9 +181,19 @@ window.Views = (function () {
     }).join("");
   }
 
+  function nextMilestone(project) {
+    const today = U.todayISO();
+    const dated = (project.milestones || []).filter(function (m) { return m.date && U.isValidISODate(m.date); });
+    const future = dated.filter(function (m) { return m.date >= today; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (future.length) return future[0];
+    const past = dated.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (past.length) return past[past.length - 1];
+    const undated = (project.milestones || []).find(function (m) { return !m.date; });
+    return undated || null;
+  }
+
   function overview(state, ui) {
     const engs = allEngagements(state);
-    const contacted = engs.filter(function (x) { return lastOutreach(state, x.engagement).text !== "—" || (x.engagement.legacy && x.engagement.legacy.reachedOut); });
     const open = openTasks(state);
     const flags = reviewCount(state);
     const overdue = overdueTasks(state).length;
@@ -191,12 +201,80 @@ window.Views = (function () {
     const waiting = waitingTasks(state).length;
     const uncontacted = uncontactedCount(state);
 
+    const search = U.normalizeKey(ui.search);
+    const fProject = ui.ovProject || "";
+    const fOwner = ui.ovOwner || "";
+    const period = ui.ovPeriod === undefined || ui.ovPeriod === "" ? 30 : Number(ui.ovPeriod);
+    const periodLabel = period === 0 ? "All upcoming" : "Next " + period + " days";
+
+    const activeProjects = state.projects.filter(function (p) { return !p.archived; });
+
+    function isContacted(x) {
+      return lastOutreach(state, x.engagement).text !== "—" || (x.engagement.legacy && x.engagement.legacy.reachedOut);
+    }
+    function engMatch(x) {
+      if (fProject && x.project.id !== fProject) return false;
+      if (fOwner && (x.engagement.owner || "") !== fOwner) return false;
+      if (search) {
+        const inv = investorById(state, x.engagement.investorId);
+        const hay = [(inv ? inv.name : ""), x.project.name, (x.engagement.owner || "")].join(" ");
+        if (U.normalizeKey(hay).indexOf(search) === -1) return false;
+      }
+      return true;
+    }
+    const controls =
+      '<div class="ov-controls">' +
+        '<label class="ov-search">' +
+          '<span class="ov-search-ico" aria-hidden="true">⌕</span>' +
+          '<input class="input-search" data-input="search" placeholder="Search projects, investors, tasks…" value="' + U.esc(ui.search) + '" />' +
+        "</label>" +
+        '<select data-change="ovProject" aria-label="Filter by project"><option value="">All projects</option>' +
+          activeProjects.map(function (p) { return '<option value="' + U.esc(p.id) + '"' + (fProject === p.id ? " selected" : "") + ">" + U.esc(p.name) + "</option>"; }).join("") +
+        "</select>" +
+        '<select data-change="ovOwner" aria-label="Filter by owner"><option value="">All owners</option>' +
+          ["Suzana", "Bruno"].map(function (t) { return '<option value="' + t + '"' + (fOwner === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
+        "</select>" +
+        '<select data-change="ovPeriod" aria-label="Date period">' +
+          [[7, "Next 7 days"], [30, "Next 30 days"], [90, "Next 90 days"], [0, "All upcoming"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (String(period) === String(o[0]) ? " selected" : "") + ">" + o[1] + "</option>";
+          }).join("") +
+        "</select>" +
+        '<span class="spacer"></span>' +
+        '<button class="primary-btn" data-action="add-task">＋ Add task</button>' +
+      "</div>" +
+      '<div class="quick-row">' +
+        '<button class="ghost-btn" data-action="quick-outreach">Record outreach</button>' +
+        '<button class="ghost-btn" data-action="quick-activity">Log activity</button>' +
+        '<button class="ghost-btn" data-action="import-investors">Import investors…</button>' +
+        '<button class="ghost-btn" data-action="manage-templates">Stage templates…</button>' +
+      "</div>";
+
+    const portfolio = activeProjects.filter(function (p) {
+      if (fProject && p.id !== fProject) return false;
+      if (search && U.normalizeKey(p.name).indexOf(search) === -1) return false;
+      return true;
+    }).map(function (p) {
+      const ag = p.agreement || { status: "not_started" };
+      const ms = nextMilestone(p);
+      const msHtml = ms ? U.esc(ms.label) + (ms.date ? ' <span class="cell-sub">· ' + U.esc(U.fmtDate(ms.date)) + "</span>" : "") : '<span class="cell-muted">Not set</span>';
+      return '<tr data-action="open-project" data-id="' + U.esc(p.id) + '">' +
+        '<td class="cell-name">' + U.esc(p.name) + "</td>" +
+        "<td>" + U.projectStageChip(p.deliveryStage) + "</td>" +
+        "<td>" + U.agreementChip(ag.status) + "</td>" +
+        "<td>" + (p.lead ? U.esc(p.lead) : '<span class="cell-muted">Not set</span>') + "</td>" +
+        "<td>" + msHtml + "</td>" +
+        '<td class="cell-action"><button class="link-btn" data-action="open-project" data-id="' + U.esc(p.id) + '">Open project</button></td>' +
+        "</tr>";
+    }).join("");
+    const portfolioBody = portfolio ||
+      '<tr><td colspan="6"><div class="empty-mini">No projects match the current filters.</div></td></tr>';
+
     const attention = [
       { label: "Overdue", value: overdue, sub: "tasks past due", filter: "overdue", alert: overdue > 0 },
       { label: "Due today", value: today, sub: "tasks due " + U.fmtDate(U.todayISO()), filter: "today", alert: today > 0 },
       { label: "Waiting", value: waiting, sub: "blocked on reply or documents", filter: "waiting" },
       { label: "Needs review", value: flags, sub: "flags to verify after migration", filter: "review", alert: flags > 0 },
-      { label: "Not contacted", value: uncontacted, sub: "engagements with no outreach", filter: "uncontacted" }
+      { label: "No outreach recorded", value: uncontacted, sub: "engagements without outreach activity", filter: "uncontacted" }
     ].map(function (c) {
       return '<button class="attention-card' + (c.alert ? " alert" : "") + '" data-action="attention" data-filter="' + c.filter + '">' +
         '<div class="stat-value">' + c.value + "</div>" +
@@ -205,23 +283,34 @@ window.Views = (function () {
         "</button>";
     }).join("");
 
-    const quick = '<div class="quick-row">' +
-      '<button class="primary-btn ghost" data-action="quick-outreach">Record outreach</button>' +
-      '<button class="ghost-btn" data-action="quick-activity">Log activity</button>' +
-      '<button class="ghost-btn" data-action="add-task">Add task</button>' +
-      '<button class="ghost-btn" data-action="import-investors">Import investors…</button>' +
-      '<button class="ghost-btn" data-action="manage-templates">Stage templates…</button>' +
-      '<span class="spacer"></span>' +
-      "</div>";
+    const from = U.todayISO();
+    const to = period > 0 ? U.addDaysISO(from, period) : "9999-12-31";
+    const upcomingItems = calendarItems(state, { calendarOwner: fOwner, calendarKind: "" })
+      .filter(function (it) { return it.date >= from && it.date <= to; })
+      .slice(0, 8);
+    const upcoming = upcomingItems.map(function (it) {
+      return '<div class="mini-row" data-action="' + it.action + '" data-id="' + U.esc(it.id) + '" role="button">' +
+        '<span class="mini-date">' + U.esc(U.fmtDate(it.date)) + "</span>" +
+        '<span class="mini-main">' + U.esc(it.label) + "</span>" +
+        "</div>";
+    }).join("") || '<div class="empty-mini">Nothing scheduled in this period.</div>';
 
-    const cards = [
-      { label: "Projects", value: state.projects.filter(function (p) { return !p.archived; }).length },
-      { label: "Investors", value: state.investors.length },
-      { label: "Engagements", value: engs.length },
-      { label: "Contacted", value: contacted.length },
-      { label: "Open tasks", value: open.length },
-      { label: "Needs review", value: flags, alert: flags > 0 }
-    ];
+    const contactedRows = engs.filter(isContacted).filter(engMatch).slice(0, 12).map(function (x) {
+      const inv = investorById(state, x.engagement.investorId);
+      if (!inv) return "";
+      return '<tr data-action="open-detail" data-id="' + U.esc(inv.id) + '" data-engagement-id="' + U.esc(x.engagement.id) + '">' +
+        '<td class="cell-name">' + U.esc(inv.name) + "</td>" +
+        '<td><span class="cell-sub">' + U.esc(inv.type || "No type") + "</span></td>" +
+        "<td>" + U.esc(x.project.name) + "</td>" +
+        "<td>" + U.stageChip(x.engagement.stage) + "</td>" +
+        '<td class="cell-sub">' + U.esc(lastOutreach(state, x.engagement).text) + "</td>" +
+        "<td>" + (x.engagement.owner ? U.esc(x.engagement.owner) : '<span class="cell-muted">Not set</span>') + "</td>" +
+        "</tr>";
+    }).join("");
+    const contactedTotal = engs.filter(isContacted).filter(engMatch).length;
+    const contactedBody = contactedRows ||
+      '<tr><td colspan="6"><div class="empty-mini">No contacted institutions match the current filters.</div></td></tr>';
+
     const pipeline = U.STAGES.map(function (s) {
       const n = engs.filter(function (x) { return x.engagement.stage === s.id; }).length;
       const pct = engs.length ? Math.round((n / engs.length) * 100) : 0;
@@ -232,57 +321,50 @@ window.Views = (function () {
         "</div>";
     }).join("");
 
-    const recent = state.activities.slice().sort(function (a, b) {
-      if (!a.date && !b.date) return 0;
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-      return a.date < b.date ? 1 : -1;
-    }).slice(0, 8).map(function (a) {
-      const eng = findEngagement(state, a.engagementId);
-      const inv = eng ? investorById(state, eng.engagement.investorId) : null;
-      return '<div class="mini-row" data-action="edit-activity" data-id="' + U.esc(a.id) + '" role="button">' +
-        '<span class="mini-date">' + (a.date ? U.esc(U.fmtDate(a.date)) : "<em>Undated</em>") + "</span>" +
-        '<span class="mini-main">' + U.esc(inv ? inv.name : "Unknown") +
-        (eng ? ' <span class="mini-sub">· ' + U.esc(eng.project.name) + "</span>" : "") + "</span>" +
-        '<span class="mini-note">' + U.esc(a.summary || U.activityKindLabel(a)) + "</span>" +
-        "</div>";
-    }).join("") || '<div class="empty-mini">No activities recorded yet.</div>';
-
-    const due = open.slice().sort(function (a, b) {
-      const da = a.dueDate || "9999-12-31";
-      const db = b.dueDate || "9999-12-31";
-      return da < db ? -1 : da > db ? 1 : 0;
-    }).slice(0, 8).map(function (t) {
-      const proj = t.projectId ? projectById(state, t.projectId) : null;
-      return '<div class="mini-row" data-action="edit-task" data-id="' + U.esc(t.id) + '" role="button">' +
-        '<span class="mini-main">' + U.esc(t.title) + (t.kind === "appointment" ? ' <span class="chip chip-warning">appt</span>' : "") + "</span>" +
-        '<span class="mini-note' + (U.isOverdue(t) ? " overdue" : "") + '">' +
-        (t.dueDate ? U.esc(U.fmtDate(t.dueDate)) : "No due date") +
-        (t.owner ? " · " + U.esc(t.owner) : "") + (proj ? " · " + U.esc(proj.name) : "") +
-        "</span></div>";
-    }).join("") || '<div class="empty-mini">No open tasks.</div>';
-
     let migrationNote = "";
     if (state.migrationReport) {
       const r = state.migrationReport;
       migrationNote = '<div class="banner">Migrated from the legacy dataset on ' + U.esc(String(r.migratedAt).slice(0, 10)) +
         " — " + r.sourceCounts.institutions + " institutions, " + r.sourceCounts.contacts +
-        " contacts and " + r.sourceCounts.tasks + " tasks preserved. " +
-        (r.counts.reviewFlags ? r.counts.reviewFlags + " items flagged for review." : "") + "</div>";
+        " contacts and " + r.sourceCounts.tasks + " tasks preserved." +
+        (r.counts && r.counts.reviewFlags ? " " + r.counts.reviewFlags + " items flagged for review." : "") + "</div>";
     }
 
-    return migrationNote +
-      '<div class="attention-row">' + attention + "</div>" +
-      quick +
-      '<div class="card-row">' + cards.map(function (c) {
-        return '<div class="stat-card' + (c.alert ? " alert" : "") + '"><div class="stat-value">' + c.value + "</div><div class=\"stat-label\">" + U.esc(c.label) + "</div></div>";
-      }).join("") + "</div>" +
-      '<div class="panel"><div class="panel-head"><h3>Pipeline</h3></div><div class="panel-body">' + pipeline + "</div></div>" +
-      '<div class="split">' +
-      '<div class="panel"><div class="panel-head"><h3>Recent activity</h3></div><div class="panel-body list">' + recent + "</div></div>" +
-      '<div class="panel"><div class="panel-head"><h3>Tasks due</h3></div><div class="panel-body list">' + due + "</div></div>" +
-      "</div>";
+    return controls +
+      '<div class="card-row">' +
+        [{ label: "Projects", value: activeProjects.length },
+         { label: "Investors", value: state.investors.length },
+         { label: "Engagements", value: engs.length },
+         { label: "Contacted", value: engs.filter(isContacted).length }].map(function (c) {
+          return '<div class="stat-card"><div class="stat-value">' + c.value + '</div><div class="stat-label">' + U.esc(c.label) + "</div></div>";
+        }).join("") +
+      "</div>" +
+      '<div class="panel"><div class="panel-head"><h3>Project portfolio</h3><span class="legend">' + activeProjects.length + " project" + (activeProjects.length === 1 ? "" : "s") + "</span></div>" +
+        '<div class="panel-body no-pad"><div class="table-wrap"><table class="data-table"><thead><tr>' +
+        "<th>Project</th><th>Stage</th><th>Agreement</th><th>Lead</th><th>Next milestone</th><th></th></tr></thead><tbody>" +
+        portfolioBody + "</tbody></table></div></div></div>" +
+      '<div class="ov-split">' +
+        '<div class="panel"><div class="panel-head"><h3>Your next actions</h3></div><div class="panel-body"><div class="attention-grid">' + attention + "</div></div></div>" +
+        '<div class="panel"><div class="panel-head"><h3>Upcoming</h3><span class="legend">' + periodLabel + "</span></div><div class=\"panel-body list\">" + upcoming + "</div></div>" +
+      "</div>" +
+      '<div class="panel"><div class="panel-head"><h3>Institutions contacted</h3><span class="legend">' + contactedTotal + " of " + engs.length + " engagement" + (engs.length === 1 ? "" : "s") + "</span></div>" +
+        '<div class="panel-body no-pad"><div class="table-wrap"><table class="data-table"><thead><tr>' +
+        "<th>Institution</th><th>Type</th><th>Project</th><th>Discussion stage</th><th>Last outreach</th><th>Owner</th></tr></thead><tbody>" +
+        contactedBody + "</tbody></table></div></div></div>" +
+      '<details class="panel ov-secondary"><summary class="panel-head"><h3>Investor discussion stages</h3><span class="legend">" + ... + "</span></summary>' +
+        '<div class="panel-body">' +
+          '<p class="ov-note">Discussion stages describe where each investor engagement stands. “Not contacted” is a discussion stage; it is distinct from <strong>No outreach recorded</strong>, which counts engagements that have no outreach activity at all.</p>' +
+          pipeline +
+        "</div></details>" +
+      '<details class="panel ov-secondary"><summary class="panel-head"><h3>Data quality</h3><span class="legend">' + flags + " review item" + (flags === 1 ? "" : "s") + "</span></summary>" +
+        '<div class="panel-body">' + (migrationNote || '<div class="empty-mini">No migration report on file.</div>') +
+          '<div class="card-row" style="margin-top:12px">' +
+            '<div class="stat-card"><div class="stat-value">' + open.length + '</div><div class="stat-label">Open tasks</div></div>' +
+            '<div class="stat-card' + (flags ? " alert" : "") + '"><div class="stat-value">' + flags + '</div><div class="stat-label">Review items</div></div>' +
+          "</div>" +
+        "</div></details>";
   }
+
 
   function calendarItems(state, ui) {
     const items = [];

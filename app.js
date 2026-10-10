@@ -24,6 +24,9 @@ window.App = (function () {
     calendarView: "month",
     calendarOwner: "",
     calendarKind: "",
+    ovProject: "",
+    ovOwner: "",
+    ovPeriod: "30",
     stageDetail: null,
     selectedInvestors: []
   };
@@ -1432,6 +1435,9 @@ window.App = (function () {
       if (kind === "myTasksOnly") { ui.myTasksOnly = target.checked; render(); return; }
       if (kind === "calendarOwner") { ui.calendarOwner = target.value; render(); return; }
       if (kind === "calendarKind") { ui.calendarKind = target.value; render(); return; }
+      if (kind === "ovProject") { ui.ovProject = target.value; render(); return; }
+      if (kind === "ovOwner") { ui.ovOwner = target.value; render(); return; }
+      if (kind === "ovPeriod") { ui.ovPeriod = target.value; render(); return; }
       if (kind === "select-investor") {
         const id = target.dataset.id;
         const set = new Set(ui.selectedInvestors);
