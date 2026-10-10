@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "seq": 1,
+  "seq": 2,
   "messages": [
     {
       "id": "m1",
@@ -11,9 +11,20 @@
       "projectName": "",
       "clientId": "test-123",
       "ts": "2026-10-10T23:29:20.349Z"
+    },
+    {
+      "id": "m2",
+      "seq": 2,
+      "author": "Bruno",
+      "text": "Hi Suzana, from Bruno!",
+      "projectId": "",
+      "projectName": "",
+      "clientId": "test-456",
+      "ts": "2026-10-10T23:29:48.984Z"
     }
   ],
   "reads": {
-    "Suzana": 1
+    "Suzana": 1,
+    "Bruno": 2
   }
 }
