@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "seq": 1,
+  "messages": [
+    {
+      "id": "m1",
+      "seq": 1,
+      "author": "Suzana",
+      "text": "Hello from Suzana!",
+      "projectId": "",
+      "projectName": "",
+      "clientId": "test-123",
+      "ts": "2026-10-10T23:29:20.349Z"
+    }
+  ],
+  "reads": {
+    "Suzana": 1
+  }
+}
