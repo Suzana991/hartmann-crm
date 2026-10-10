@@ -7,13 +7,19 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function makeEntry(user, summary, at) {
+function makeEntry(user, summary, at, extra) {
   let ts = new Date().toISOString();
   if (at) {
     const parsed = new Date(at);
     if (!isNaN(parsed)) ts = parsed.toISOString();
   }
-  return { id: uid(), ts: ts, user: user || "Team member", summary: summary };
+  const entry = { id: uid(), ts: ts, user: user || "Team member", summary: summary };
+  if (extra && typeof extra === "object") {
+    if (extra.projectId) entry.projectId = String(extra.projectId);
+    if (extra.projectName) entry.projectName = String(extra.projectName);
+    if (extra.investorId) entry.investorId = String(extra.investorId);
+  }
+  return entry;
 }
 
 function byId(list) {
@@ -237,6 +243,48 @@ function countsLine(data) {
   return investors + " investors · " + projects + " projects · " + engagements + " engagements · " + (data.tasks || []).length + " tasks";
 }
 
+function primaryChangeTarget(oldData, nextData) {
+  const target = { projectId: "", projectName: "", investorId: "" };
+  if (!oldData) return target;
+  const oldP = byId(oldData.projects);
+  const newP = byId(nextData.projects);
+  for (const p of nextData.projects || []) {
+    const prev = oldP.get(p.id);
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
+      target.projectId = p.id;
+      target.projectName = p.name || "";
+      break;
+    }
+  }
+  if (!target.projectId) {
+    for (const p of oldData.projects || []) {
+      if (!newP.has(p.id)) { target.projectName = p.name || ""; break; }
+    }
+  }
+  const oldI = byId(oldData.investors);
+  const newI = byId(nextData.investors);
+  for (const inv of nextData.investors || []) {
+    const prev = oldI.get(inv.id);
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(inv)) {
+      target.investorId = inv.id;
+      break;
+    }
+  }
+  return target;
+}
+
+function describeChange(oldData, nextData) {
+  const summary = summarizeChange(oldData, nextData);
+  if (!summary) return null;
+  const target = primaryChangeTarget(oldData, nextData);
+  return {
+    summary: summary,
+    projectId: target.projectId,
+    projectName: target.projectName,
+    investorId: target.investorId
+  };
+}
+
 function summarizeChange(oldData, nextData) {
   if (!oldData) return "Initialised the dataset";
   const oldV = Number(oldData.schemaVersion || 0);
@@ -255,4 +303,4 @@ function summarizeChange(oldData, nextData) {
   return more > 0 ? head + " · and " + more + " more change" + (more === 1 ? "" : "s") : head;
 }
 
-export { MAX_CHANGELOG, makeEntry, summarizeChange };
+export { MAX_CHANGELOG, makeEntry, summarizeChange, describeChange };

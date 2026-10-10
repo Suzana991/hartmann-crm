@@ -12,7 +12,9 @@ const DEV_TOKEN = process.env.DEV_TOKEN || "dev-token";
 const TEMP = process.env.TEMP || process.env.TMP || ROOT;
 const DATA_FILE = process.env.DEV_DATA_FILE || path.join(TEMP, "hartmann-crm-dev-data.json");
 const CHANGE_FILE = process.env.DEV_CHANGE_FILE || path.join(TEMP, "hartmann-crm-dev-changelog.json");
+const CHAT_FILE = process.env.DEV_CHAT_FILE || path.join(TEMP, "hartmann-crm-dev-chat.json");
 const CHANGE_PATH = process.env.CHANGE_PATH && String(process.env.CHANGE_PATH).trim() ? String(process.env.CHANGE_PATH).trim() : "changelog.json";
+const CHAT_PATH = process.env.CHAT_PATH && String(process.env.CHAT_PATH).trim() ? String(process.env.CHAT_PATH).trim() : "chat.json";
 const FIXTURE = path.join(ROOT, "tests", "fixtures", "legacy-data.json");
 
 const STATIC_FILES = {
@@ -30,11 +32,17 @@ function seedDataFile() {
   if (process.env.DEV_RESET) {
     if (fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
     if (fs.existsSync(CHANGE_FILE)) fs.unlinkSync(CHANGE_FILE);
+    if (fs.existsSync(CHAT_FILE)) fs.unlinkSync(CHAT_FILE);
   }
   if (!fs.existsSync(DATA_FILE)) {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     fs.copyFileSync(FIXTURE, DATA_FILE);
     console.log("[dev] seeded dev data from fixture:", DATA_FILE);
+  }
+  if (!fs.existsSync(CHAT_FILE)) {
+    fs.mkdirSync(path.dirname(CHAT_FILE), { recursive: true });
+    fs.writeFileSync(CHAT_FILE, JSON.stringify({ version: 1, seq: 0, messages: [], reads: {} }, null, 2), "utf8");
+    console.log("[dev] seeded empty chat store:", CHAT_FILE);
   }
 }
 
@@ -45,6 +53,7 @@ function makeEnv() {
     GITHUB_BRANCH: "dev",
     DATA_PATH: "data.json",
     CHANGE_PATH: CHANGE_PATH,
+    CHAT_PATH: CHAT_PATH,
     GITHUB_TOKEN: "dev-github-token",
     AUTH_TOKENS: DEV_TOKEN,
     AUTH_NAMES: process.env.AUTH_NAMES || "",
@@ -78,7 +87,7 @@ seedDataFile();
 const env = makeEnv();
 const emulator = createGitHubEmulator(
   { owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO, branch: env.GITHUB_BRANCH, path: env.DATA_PATH, token: env.GITHUB_TOKEN },
-  { [env.DATA_PATH]: DATA_FILE, [env.CHANGE_PATH]: CHANGE_FILE }
+  { [env.DATA_PATH]: DATA_FILE, [env.CHANGE_PATH]: CHANGE_FILE, [env.CHAT_PATH]: CHAT_FILE }
 );
 const apiHandler = createHandler(env, emulator.fetchImpl);
 
@@ -147,5 +156,6 @@ server.listen(PORT, "127.0.0.1", function () {
   console.log("[dev] auth keys configured: " + String(DEV_TOKEN || "").split(",").filter(Boolean).length + " (values not logged)");
   console.log("[dev] data file:", DATA_FILE);
   console.log("[dev] changelog file:", CHANGE_FILE);
+  console.log("[dev] chat file:", CHAT_FILE);
   console.log("[dev] reset data with: DEV_RESET=1 node server/src/dev-server.js");
 });

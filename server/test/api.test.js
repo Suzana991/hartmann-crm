@@ -16,6 +16,7 @@ const ENV = {
   GITHUB_BRANCH: "data",
   DATA_PATH: "data.json",
   CHANGE_PATH: "changelog.json",
+  CHAT_PATH: "chat.json",
   GITHUB_TOKEN: GH_TOKEN,
   AUTH_TOKENS: TEAM_TOKENS.join(", "),
   AUTH_NAMES: TEAM_TOKENS[0] + ":Alpha," + TEAM_TOKENS[1] + ":Beta",
@@ -30,6 +31,7 @@ const GITHUB_CFG = {
 };
 
 const GITHUB_CHANGE_CFG = Object.assign({}, GITHUB_CFG, { path: ENV.CHANGE_PATH });
+const GITHUB_CHAT_CFG = Object.assign({}, GITHUB_CFG, { path: ENV.CHAT_PATH });
 
 function minimalState(overrides) {
   return Object.assign({
@@ -62,14 +64,16 @@ function setup(opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "crm-api-test-"));
   const dataFile = path.join(dir, "data.json");
   const changeFile = path.join(dir, "changelog.json");
+  const chatFile = path.join(dir, "chat.json");
   if (opts.seed !== undefined && opts.seed !== null) fs.writeFileSync(dataFile, opts.seed, "utf8");
   if (opts.changelogSeed !== undefined && opts.changelogSeed !== null) fs.writeFileSync(changeFile, opts.changelogSeed, "utf8");
-  const files = { [GITHUB_CFG.path]: dataFile, [GITHUB_CHANGE_CFG.path]: changeFile };
+  if (opts.chatSeed !== undefined && opts.chatSeed !== null) fs.writeFileSync(chatFile, opts.chatSeed, "utf8");
+  const files = { [GITHUB_CFG.path]: dataFile, [GITHUB_CHANGE_CFG.path]: changeFile, [GITHUB_CHAT_CFG.path]: chatFile };
   const emu = createGitHubEmulator(GITHUB_CFG, files);
   let impl = emu.fetchImpl;
   if (opts.wrapFetch) impl = opts.wrapFetch(emu.fetchImpl);
   const handler = createHandler(opts.env || ENV, impl);
-  return { handler, emu, dataFile, changeFile };
+  return { handler, emu, dataFile, changeFile, chatFile };
 }
 
 function makeReq(method, target, opts = {}) {
@@ -485,3 +489,127 @@ test("changelog: a failed changelog write never fails the data save", async () =
   assert.equal(save.status, 200, "data save succeeds even though the changelog write fails");
   assert.equal(JSON.parse(fs.readFileSync(dataFile, "utf8")).investors[0].name, "Renamed");
 });
+
+test("chat: requires auth, identity comes from the server token, and messages never touch CRM data", async () => {
+  const { handler, emu } = setup({ seed: legacySeed() });
+
+  const noAuth = await handler(makeReq("GET", "/api/chat"));
+  assert.equal(noAuth.status, 401);
+  assert.equal(emu.calls.length, 0, "no storage access before authentication");
+
+  const alphaRead = await readJson(await handler(makeReq("GET", "/api/chat", { token: TEAM_TOKENS[0] })));
+  assert.equal(alphaRead.me, "Alpha", "caller identity is derived from the authenticated token");
+  assert.deepEqual(alphaRead.messages, []);
+  assert.equal(alphaRead.latest, 0);
+
+  const send = await handler(makeReq("POST", "/api/chat", {
+    token: TEAM_TOKENS[0],
+    body: { clientId: "c1", text: "Hello\nWorld", projectId: "proj1", projectName: "Palazzo Ricci", author: "Hacker", name: "Hacker" }
+  }));
+  assert.equal(send.status, 200);
+  const sent = await readJson(send);
+  assert.equal(sent.message.author, "Alpha", "browser-supplied sender name is ignored");
+  assert.equal(sent.message.seq, 1);
+  assert.equal(sent.duplicate, false);
+  assert.equal(sent.message.text, "Hello\nWorld");
+
+  const betaRead = await readJson(await handler(makeReq("GET", "/api/chat?since=0", { token: TEAM_TOKENS[1] })));
+  assert.equal(betaRead.messages.length, 1);
+  assert.equal(betaRead.messages[0].text, "Hello\nWorld");
+  assert.equal(betaRead.me, "Beta");
+
+  const noneSince = await readJson(await handler(makeReq("GET", "/api/chat?since=1", { token: TEAM_TOKENS[1] })));
+  assert.deepEqual(noneSince.messages, []);
+
+  const writes = emu.calls.filter((c) => c.method === "PUT");
+  assert.equal(writes.length, 1, "only the chat file is written");
+  assert.equal(writes[0].url, buildFileUrl(GITHUB_CHAT_CFG, { withRef: false }));
+  assert.ok(emu.calls.every((c) => c.url === buildFileUrl(GITHUB_CHAT_CFG) || c.url === buildFileUrl(GITHUB_CHAT_CFG, { withRef: false })),
+    "chat requests never reach the CRM data or changelog files");
+});
+
+test("chat: resends are deduped and read markers are per-member and monotonic", async () => {
+  const { handler } = setup({ seed: legacySeed() });
+
+  const first = await readJson(await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], body: { clientId: "c1", text: "first" } })));
+  assert.equal(first.message.seq, 1);
+  const resend = await readJson(await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], body: { clientId: "c1", text: "first" } })));
+  assert.equal(resend.duplicate, true, "retrying the same client message does not create a duplicate");
+  assert.equal(resend.message.seq, 1);
+
+  const second = await readJson(await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[1], body: { clientId: "c2", text: "second" } })));
+  assert.equal(second.message.seq, 2);
+  assert.equal(second.message.author, "Beta");
+
+  const read = await readJson(await handler(makeReq("POST", "/api/chat/read", { token: TEAM_TOKENS[1], body: { seq: 2 } })));
+  assert.equal(read.read, 2);
+
+  const afterAlpha = await readJson(await handler(makeReq("GET", "/api/chat", { token: TEAM_TOKENS[0] })));
+  assert.equal(afterAlpha.reads.Alpha, 1, "author is marked read up to their own message");
+  assert.equal(afterAlpha.reads.Beta, 2);
+
+  const staleRead = await readJson(await handler(makeReq("POST", "/api/chat/read", { token: TEAM_TOKENS[1], body: { seq: 1 } })));
+  assert.equal(staleRead.read, 2, "read marker never moves backwards");
+});
+
+test("chat: rejects empty, oversized and malformed messages and unknown methods", async () => {
+  const { handler } = setup({ seed: legacySeed() });
+  const empty = await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], body: { clientId: "c1", text: "   " } }));
+  assert.equal(empty.status, 400);
+  assert.equal((await readJson(empty)).error, "empty-message");
+
+  const big = await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], body: { clientId: "c1", text: "x".repeat(4001) } }));
+  assert.equal(big.status, 400);
+  assert.equal((await readJson(big)).error, "message-too-long");
+
+  const badJson = await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], raw: "{not json" }));
+  assert.equal(badJson.status, 400);
+  assert.equal((await readJson(badJson)).error, "invalid-json");
+
+  const badSeq = await handler(makeReq("POST", "/api/chat/read", { token: TEAM_TOKENS[0], body: { seq: -3 } }));
+  assert.equal(badSeq.status, 400);
+  assert.equal((await readJson(badSeq)).error, "invalid-seq");
+
+  const wrongMethod = await handler(makeReq("PUT", "/api/chat", { token: TEAM_TOKENS[0], body: {} }));
+  assert.equal(wrongMethod.status, 405);
+  const readGet = await handler(makeReq("GET", "/api/chat/read", { token: TEAM_TOKENS[0] }));
+  assert.equal(readGet.status, 405);
+});
+
+test("changelog: entries point at the affected project", async () => {
+  const { handler } = setup({ seed: JSON.stringify(seededState()) });
+  const first = await readJson(await handler(makeReq("GET", "/api/data", { token: TEAM_TOKENS[0] })));
+  const next = seededState();
+  next.projects[0].engagements[0].stage = "in_discussion";
+  const save = await handler(makeReq("PUT", "/api/data", { token: TEAM_TOKENS[0], body: { data: next, baseSha: first.sha } }));
+  assert.equal(save.status, 200);
+  const feed = await readJson(await handler(makeReq("GET", "/api/changelog", { token: TEAM_TOKENS[1] })));
+  assert.equal(feed.items.length, 1);
+  assert.equal(feed.items[0].projectId, "proj1");
+  assert.equal(feed.items[0].projectName, "Palazzo Ricci");
+});
+
+test("chat: concurrent writes retry instead of losing messages", async () => {
+  let raced = false;
+  const { handler, chatFile } = setup({
+    seed: legacySeed(),
+    wrapFetch: (inner) => async (url, init) => {
+      if (!raced && (init.method || "GET") === "PUT" && String(url).includes("chat.json")) {
+        raced = true;
+        const existing = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, "utf8")) : { version: 1, seq: 0, messages: [], reads: {} };
+        existing.seq += 1;
+        existing.messages.push({ id: "m" + existing.seq, seq: existing.seq, author: "Beta", text: "racing", projectId: "", projectName: "", clientId: "race", ts: "2026-10-11T00:00:00.000Z" });
+        fs.writeFileSync(chatFile, JSON.stringify(existing, null, 2), "utf8");
+      }
+      return inner(url, init);
+    }
+  });
+  const res = await handler(makeReq("POST", "/api/chat", { token: TEAM_TOKENS[0], body: { clientId: "c1", text: "mine" } }));
+  assert.equal(res.status, 200);
+  const body = await readJson(res);
+  assert.equal(body.message.seq, 2, "the racing write is preserved and this message is appended after it");
+  const stored = JSON.parse(fs.readFileSync(chatFile, "utf8"));
+  assert.equal(stored.messages.length, 2, "no message is lost to a concurrent write");
+  assert.deepEqual(stored.messages.map((m) => m.text), ["racing", "mine"]);
+});
+

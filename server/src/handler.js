@@ -1,10 +1,16 @@
 import { authenticate } from "./auth.js";
 import { validateState, PayloadError } from "./validate.js";
 import { getFile, putFile, StorageError } from "./github.js";
-import { MAX_CHANGELOG, makeEntry, summarizeChange } from "./changelog.js";
+import { MAX_CHANGELOG, makeEntry, describeChange } from "./changelog.js";
+import {
+  parseChat, serializeChat, emptyChat, addMessage, markRead, publicChat,
+  MAX_MESSAGE_CHARS
+} from "./chat.js";
 
 const MAX_BODY_CHARS = 900000;
+const MAX_CHAT_BODY_CHARS = 12000;
 const REQUIRED_VARS = ["GITHUB_OWNER", "GITHUB_REPO", "GITHUB_BRANCH", "DATA_PATH", "GITHUB_TOKEN", "AUTH_TOKENS"];
+const DEFAULT_AUTHOR = "Team member";
 
 function baseHeaders() {
   return {
@@ -36,6 +42,7 @@ function readConfig(env) {
     branch: env.GITHUB_BRANCH,
     path: env.DATA_PATH,
     changePath: env.CHANGE_PATH || "changelog.json",
+    chatPath: env.CHAT_PATH || "chat.json",
     token: env.GITHUB_TOKEN,
     authTokens: env.AUTH_TOKENS,
     authNames: env.AUTH_NAMES || "",
@@ -73,7 +80,38 @@ function parseChangeItems(text) {
 export function createHandler(env, fetchImpl = globalThis.fetch) {
   const { cfg, missing } = readConfig(env);
   const changeCfg = Object.assign({}, cfg, { path: cfg.changePath });
+  const chatCfg = Object.assign({}, cfg, { path: cfg.chatPath });
   const authNames = parseAuthNames(cfg.authNames);
+
+  function authorName(token) {
+    return (authNames && authNames[token]) || DEFAULT_AUTHOR;
+  }
+
+  async function readChat() {
+    const file = await getFile(chatCfg, fetchImpl);
+    if (file.missing) return { file: file, store: emptyChat() };
+    return { file: file, store: parseChat(file.text) };
+  }
+
+  async function commitChat(mutator) {
+    let conflict = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const current = await readChat();
+      const result = mutator(current.store);
+      try {
+        await putFile(chatCfg, fetchImpl, {
+          sha: current.file.missing ? undefined : current.file.sha,
+          text: serializeChat(current.store),
+          message: "Update team chat via API"
+        });
+        return result;
+      } catch (err) {
+        if (err instanceof StorageError && err.status === 409) { conflict = err; continue; }
+        throw err;
+      }
+    }
+    throw new PayloadError("chat-write-conflict", 409, "chat storage changed while writing; retry");
+  }
 
   return async function handle(request) {
     if (missing.length > 0) {
@@ -87,7 +125,7 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
       return new Response(null, {
         status: 204,
         headers: Object.assign({}, baseHeaders(), cors, {
-          "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
           "Access-Control-Max-Age": "86400"
         })
@@ -129,6 +167,23 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
         return json(405, { error: "method-not-allowed" }, cors);
       }
 
+      if (url.pathname === "/api/chat") {
+        if (request.method === "GET") {
+          const since = Number(url.searchParams.get("since") || 0);
+          const current = await readChat();
+          return json(200, publicChat(current.store, { since: since, me: authorName(auth.token) }), cors);
+        }
+        if (request.method === "POST") {
+          return await handleChatPost(request, cors, auth.token);
+        }
+        return json(405, { error: "method-not-allowed" }, cors);
+      }
+
+      if (url.pathname === "/api/chat/read") {
+        if (request.method !== "POST") return json(405, { error: "method-not-allowed" }, cors);
+        return await handleChatRead(request, cors, auth.token);
+      }
+
       return json(404, { error: "not-found" }, cors);
     } catch (err) {
       if (err instanceof PayloadError) {
@@ -162,6 +217,58 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
       sha: cl.missing ? null : cl.sha,
       dataSha: data.missing ? null : data.sha
     }, cors);
+  }
+
+  async function parseChatBody(request) {
+    let raw;
+    try {
+      raw = await request.text();
+    } catch (e) {
+      throw new PayloadError("invalid-body", 400, "could not read body");
+    }
+    if (raw.length > MAX_CHAT_BODY_CHARS) throw new PayloadError("payload-too-large", 413, "chat body too large");
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      throw new PayloadError("invalid-json", 400, "body is not valid JSON");
+    }
+    if (!parsed || typeof parsed !== "object") throw new PayloadError("invalid-body", 400, "body must be an object");
+    return parsed;
+  }
+
+  async function handleChatPost(request, cors, authToken) {
+    const body = await parseChatBody(request);
+    const text = String(body.text || "").trim();
+    if (!text) return json(400, { error: "empty-message", message: "message text is required" }, cors);
+    if (text.length > MAX_MESSAGE_CHARS) return json(400, { error: "message-too-long" }, cors);
+    const author = authorName(authToken);
+    const result = await commitChat(function (store) {
+      return addMessage(store, {
+        author: author,
+        clientId: body.clientId,
+        text: body.text,
+        projectId: body.projectId,
+        projectName: body.projectName
+      });
+    });
+    if (result.error === "empty-message") return json(400, { error: "empty-message" }, cors);
+    return json(200, {
+      message: result.message,
+      duplicate: !!result.duplicate,
+      latest: result.message ? result.message.seq : 0
+    }, cors);
+  }
+
+  async function handleChatRead(request, cors, authToken) {
+    const body = await parseChatBody(request);
+    const seq = Number(body.seq);
+    if (!Number.isFinite(seq) || seq < 0) return json(400, { error: "invalid-seq" }, cors);
+    const author = authorName(authToken);
+    const result = await commitChat(function (store) {
+      return { read: markRead(store, author, seq), latest: Number(store.seq) || 0, reads: store.reads };
+    });
+    return json(200, { read: result.read, latest: result.latest, reads: result.reads, me: author }, cors);
   }
 
   async function handlePut(request, cfg, changeCfg, authNames, authToken, fetchImpl, cors) {
@@ -217,12 +324,16 @@ export function createHandler(env, fetchImpl = globalThis.fetch) {
   async function appendChangelog(current, nextData, nextText, cfg, changeCfg, authNames, authToken, fetchImpl) {
     try {
       if (nextText === current.text) return;
-      const summary = summarizeChange(current.missing ? null : safeParse(current.text), nextData);
-      if (!summary) return;
+      const info = describeChange(current.missing ? null : safeParse(current.text), nextData);
+      if (!info || !info.summary) return;
       const existing = await getFile(changeCfg, fetchImpl);
       const items = existing.missing ? [] : parseChangeItems(existing.text);
       const user = (authNames && authNames[authToken]) || "Team member";
-      items.unshift(makeEntry(user, summary));
+      items.unshift(makeEntry(user, info.summary, null, {
+        projectId: info.projectId,
+        projectName: info.projectName,
+        investorId: info.investorId
+      }));
       if (items.length > MAX_CHANGELOG) items.length = MAX_CHANGELOG;
       await putFile(changeCfg, fetchImpl, {
         sha: existing.missing ? undefined : existing.sha,
