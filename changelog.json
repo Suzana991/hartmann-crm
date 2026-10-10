@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "a68e60ad-807f-46d9-8b9f-95e05b22433d",
+      "ts": "2026-10-10T23:28:29.263Z",
+      "user": "Suzana",
+      "summary": "New contact on investor Alantra (Alteralia Real Estate Debt II)",
+      "investorId": "muyt0hzo6kvgul"
+    },
+    {
       "id": "02f80958-6597-40e7-82a7-999d877fc159",
       "ts": "2026-10-10T22:54:00.965Z",
       "user": "Suzana",
