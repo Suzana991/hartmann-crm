@@ -2924,6 +2924,16 @@
           "notes": "",
           "isPrimary": true,
           "reviewFlags": []
+        },
+        {
+          "id": "mv2ynap4ufxlc9",
+          "reviewFlags": [],
+          "name": "Sam Salloway",
+          "title": "Head of Real Estate Equity Investments",
+          "email": "sams@trezcapital.com",
+          "phone": "",
+          "notes": "",
+          "isPrimary": false
         }
       ]
     },
