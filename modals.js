@@ -394,40 +394,113 @@ window.Modals = (function () {
     const projectOptions = [{ value: "", label: "— none —" }].concat(
       state.projects.filter(function (p) { return !p.archived; }).map(function (p) { return { value: p.id, label: p.name }; })
     );
+    const checklist = Array.isArray(t.checklist) ? t.checklist : [];
+    const comments = Array.isArray(t.comments) ? t.comments : [];
+    const deps = Array.isArray(t.dependencies) ? t.dependencies : [];
+    const otherTasks = state.tasks.filter(function (x) { return x.id !== t.id && x.status !== "Completed"; });
+    const checklistHtml = checklist.map(function (c) {
+      return '<div class="checklist-item">' +
+        '<input type="checkbox" class="cl-done"' + (c.done ? " checked" : "") + " />" +
+        '<input type="text" class="cl-text input" value="' + U.esc(c.text || "") + '" placeholder="Checklist item" />' +
+        '<button type="button" class="link-btn danger cl-remove">Remove</button>' +
+        "</div>";
+    }).join("");
+    const commentsHtml = comments.length ? comments.map(function (c) {
+      return '<div class="comment-row">' +
+        '<span class="comment-meta">' + U.esc(c.author || "Team") + (c.at ? " · " + U.esc(U.fmtDate(String(c.at).slice(0, 10))) : "") + "</span>" +
+        '<span class="comment-text">' + U.esc(c.text || "") + "</span>" +
+        "</div>";
+    }).join("") : '<div class="empty-mini">No comments yet.</div>';
+    const depsHtml = otherTasks.map(function (x) {
+      return '<option value="' + U.esc(x.id) + '"' + (deps.indexOf(x.id) !== -1 ? " selected" : "") + ">" + U.esc(x.title) + "</option>";
+    }).join("");
     const body =
       field("Task", "title", t.title, { required: true, placeholder: "e.g. Send deck to Banca Ifis", wide: true }) +
+      textarea("Description", "description", t.description || "", { placeholder: "What needs to happen?", wide: true }) +
       select("Kind", "kind", [{ value: "task", label: "Task" }, { value: "appointment", label: "Appointment (planned call/meeting)" }], { value: t.kind || "task" }) +
       select("Status", "status", U.TASK_STATUSES.map(function (s) { return { value: s, label: s }; }), { value: t.status }) +
       '<div class="reveal-block" data-reveal-select="status" data-reveal-values="Waiting">' +
       select("Waiting reason", "waitingReason", [{ value: "", label: "— not specified —" }, { value: "Awaiting investor reply", label: "Awaiting investor reply" }, { value: "Awaiting internal input", label: "Awaiting internal input" }, { value: "Awaiting documents", label: "Awaiting documents" }, { value: "On hold", label: "On hold" }], { value: t.waitingReason || "" }) +
       "</div>" +
       select("Owner", "owner", [{ value: "", label: "— Unassigned —" }, { value: "Suzana", label: "Suzana" }, { value: "Bruno", label: "Bruno" }], { value: t.owner }) +
+      select("Collaborator", "collaborator", [{ value: "", label: "— none —" }, { value: "Suzana", label: "Suzana" }, { value: "Bruno", label: "Bruno" }], { value: t.collaborator || "" }) +
       field("Due date", "dueDate", t.dueDate, { type: "date" }) +
+      field("Due time", "dueTime", t.dueTime || "", { type: "time" }) +
+      field("Next follow-up", "nextFollowUp", t.nextFollowUp || "", { type: "date" }) +
       select("Priority", "priority", [{ value: "", label: "— unset —" }].concat(U.PRIORITIES.map(function (p) { return { value: p, label: p }; })), { value: t.priority }) +
       select("Project", "projectId", projectOptions, { value: t.projectId }) +
       select("Delivery stage", "stage", [{ value: "", label: "— none —" }].concat(U.PROJECT_STAGES.map(function (s) { return { value: s.id, label: s.label }; })), { value: t.stage || "", help: "Project delivery stage (distinct from investor stage)" }) +
       select("Engagement", "engagementId", [{ value: "", label: "— none —" }], { value: t.engagementId }) +
       select("Contact", "contactId", [{ value: "", label: "— none —" }], { value: t.contactId }) +
-      textarea("Description", "notes", t.notes, { placeholder: "Optional details" });
-    open(editing ? "Edit task" : (t.kind === "appointment" ? "New appointment" : "Add task"), body, function (data) {
+      select("Reminder", "reminder", [{ value: "", label: "— none —" }, { value: "0", label: "At due time" }, { value: "15min", label: "15 minutes before" }, { value: "1h", label: "1 hour before" }, { value: "1d", label: "1 day before" }], { value: t.reminder || "" }) +
+      select("Repeats", "recurring", [{ value: "", label: "— does not repeat —" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }], { value: (t.recurring && t.recurring.type) || "" }) +
+      '<label class="field wide">Dependencies<select name="dependencies" multiple size="4">' + depsHtml + '</select><span class="help-text">Hold Ctrl/Cmd to select multiple</span></label>' +
+      divider("Checklist") +
+      '<div class="checklist-list" data-checklist>' + checklistHtml + "</div>" +
+      '<button type="button" class="ghost-btn" data-cl-add>+ Add checklist item</button>' +
+      divider("Comments") +
+      '<div class="comment-list">' + commentsHtml + "</div>" +
+      textarea("Add comment", "newComment", "", { placeholder: "Add a comment…", wide: true });
+    open(editing ? "Edit task" : (t.kind === "appointment" ? "New appointment" : "Add task"), body, function (data, f) {
       const title = required(data.title, "Task title is required.");
       const due = data.dueDate ? String(data.dueDate) : "";
       if (due && !U.isValidISODate(due)) throw new Error("Due date must be a valid date (YYYY-MM-DD).");
+      const items = [];
+      f.querySelectorAll("[data-checklist] .checklist-item").forEach(function (row) {
+        const text = String(row.querySelector(".cl-text").value || "").trim();
+        if (!text) return;
+        items.push({ id: U.uid(), text: text, done: row.querySelector(".cl-done").checked });
+      });
+      const depSel = f.querySelector('[name="dependencies"]');
+      const dependencies = depSel ? [].slice.call(depSel.selectedOptions).map(function (o) { return o.value; }) : [];
+      const nextComments = comments.slice();
+      const newComment = String(data.newComment || "").trim();
+      if (newComment) nextComments.push({ id: U.uid(), author: (App.getMyOwner() || "Team"), text: newComment, at: new Date().toISOString() });
       close();
       App.commitTask(editing ? task.id : null, {
         title: title,
+        description: String(data.description || "").trim(),
         kind: String(data.kind || "task"),
         status: String(data.status || "To do"),
         waitingReason: String(data.status || "") === "Waiting" ? String(data.waitingReason || "") : "",
         owner: String(data.owner || ""),
+        collaborator: String(data.collaborator || ""),
         dueDate: due,
+        dueTime: String(data.dueTime || ""),
+        nextFollowUp: String(data.nextFollowUp || ""),
         priority: String(data.priority || ""),
-        notes: String(data.notes || "").trim(),
         projectId: String(data.projectId || ""),
         stage: String(data.stage || ""),
         engagementId: String(data.engagementId || ""),
-        contactId: String(data.contactId || "")
+        contactId: String(data.contactId || ""),
+        reminder: String(data.reminder || ""),
+        recurring: data.recurring ? { type: String(data.recurring) } : null,
+        checklist: items,
+        comments: nextComments,
+        dependencies: dependencies
       });
+    }, "Save", {
+      onOpen: function (f) {
+        const addBtn = f.querySelector("[data-cl-add]");
+        const list = f.querySelector("[data-checklist]");
+        if (addBtn && list) {
+          addBtn.addEventListener("click", function () {
+            const row = document.createElement("div");
+            row.className = "checklist-item";
+            row.innerHTML = '<input type="checkbox" class="cl-done" /><input type="text" class="cl-text input" placeholder="Checklist item" /><button type="button" class="link-btn danger cl-remove">Remove</button>';
+            list.appendChild(row);
+          });
+        }
+        if (list) {
+          list.addEventListener("click", function (e) {
+            const btn = e.target && e.target.closest ? e.target.closest(".cl-remove") : null;
+            if (btn) {
+              const row = btn.closest(".checklist-item");
+              if (row) row.parentNode.removeChild(row);
+            }
+          });
+        }
+      }
     });
     wireLinkage(state, { engagementId: t.engagementId, contactId: t.contactId });
   }
@@ -724,6 +797,107 @@ window.Modals = (function () {
       close();
       App.commitBulkAssign(String(data.projectId), investorIds);
     }, "Assign");
+  }
+
+  function notificationPrefsModal(state) {
+    const me = App.getMyOwner();
+    const prefs = state.notificationPrefs.find(p => p.user === me) || {
+      user: me,
+      followedProjects: [],
+      followedTasks: [],
+      reminderTiming: "15min",
+      toastEvents: ["task_assigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"],
+      sound: false,
+      quietHours: { start: "22:00", end: "08:00", enabled: false }
+    };
+    const projectOptions = state.projects.filter(p => !p.archived).map(p => ({ value: p.id, label: p.name }));
+    const taskOptions = state.tasks.filter(t => t.status !== "Completed").map(t => ({ value: t.id, label: t.title + (t.projectId ? " (" + (Views.projectById(state, t.projectId) || {}).name + ")" : "") }));
+    const allEventTypes = ["task_assigned", "task_reassigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"];
+    const eventLabels = {
+      "task_assigned": "Task assigned to me",
+      "task_reassigned": "Task reassigned to me",
+      "mention": "Mentioned in comment",
+      "comment": "Comment on my task",
+      "deadline_change": "Deadline changed on my task",
+      "status_change": "Status changed on my task",
+      "reminder_due": "Reminder due",
+      "overdue": "Task overdue",
+      "dependency_completed": "Dependency completed",
+      "project_change": "Important project change",
+      "agreement_followup": "Agreement follow-up due"
+    };
+    const body =
+      '<div class="wizard-steps" style="grid-column:1/-1"><span class="step active">Follow</span><span class="step">Toast & Sound</span><span class="step">Quiet Hours</span></div>' +
+      '<div class="wizard-step-content" data-step="follow">' +
+        '<div class="field wide">' +
+          '<label>Followed projects</label>' +
+          '<select name="followedProjects" multiple size="5" style="width:100%;min-height:120px">' +
+            projectOptions.map(o => '<option value="' + U.esc(o.value) + '"' + (prefs.followedProjects.includes(o.value) ? " selected" : "") + '>' + U.esc(o.label) + '</option>').join("") +
+          '</select>' +
+          '<span class="help-text">Hold Ctrl/Cmd to select multiple</span>' +
+        '</div>' +
+        '<div class="field wide">' +
+          '<label>Followed tasks</label>' +
+          '<select name="followedTasks" multiple size="5" style="width:100%;min-height:120px">' +
+            taskOptions.map(o => '<option value="' + U.esc(o.value) + '"' + (prefs.followedTasks.includes(o.value) ? " selected" : "") + '>' + U.esc(o.label) + '</option>').join("") +
+          '</select>' +
+          '<span class="help-text">Hold Ctrl/Cmd to select multiple</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wizard-step-content" data-step="toast" style="display:none">' +
+        '<div class="modal-divider"><span>Which events show a toast notification?</span></div>' +
+        allEventTypes.map(et => 
+          '<label class="check-line" style="grid-column:1/-1"><input type="checkbox" name="toast_' + et + '"' + (prefs.toastEvents.includes(et) ? " checked" : "") + '> ' + U.esc(eventLabels[et]) + '</label>'
+        ).join("") +
+        '<div class="field check-field" style="grid-column:1/-1">' +
+          '<label class="check-line"><input type="checkbox" name="sound"' + (prefs.sound ? " checked" : "") + '> Play notification sound (off by default)</label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wizard-step-content" data-step="quiet" style="display:none">' +
+        '<div class="field"><label>Quiet hours start<input type="time" name="quietStart" value="' + U.esc(prefs.quietHours.start) + '"></label></div>' +
+        '<div class="field"><label>Quiet hours end<input type="time" name="quietEnd" value="' + U.esc(prefs.quietHours.end) + '"></label></div>' +
+        '<div class="field check-field" style="grid-column:1/-1">' +
+          '<label class="check-line"><input type="checkbox" name="quietEnabled"' + (prefs.quietHours.enabled ? " checked" : "") + '> Enable quiet hours (mutes sounds and toasts during this period)</label>' +
+        '</div>' +
+        '<div class="field"><label>Reminder timing<select name="reminderTiming">' +
+          [{ value: "at_time", label: "At due time" }, { value: "5min", label: "5 minutes before" }, { value: "15min", label: "15 minutes before" }, { value: "30min", label: "30 minutes before" }, { value: "1hour", label: "1 hour before" }, { value: "1day", label: "1 day before" }].map(o => '<option value="' + o.value + '"' + (prefs.reminderTiming === o.value ? " selected" : "") + '>' + o.label + '</option>').join("") +
+        '</select></label></div>' +
+      '</div>' +
+      '<div class="wizard-steps" style="grid-column:1/-1;margin-top:16px">' +
+        '<button type="button" class="wizard-step-btn active" data-step-target="follow">Follow</button>' +
+        '<button type="button" class="wizard-step-btn" data-step-target="toast">Toast & Sound</button>' +
+        '<button type="button" class="wizard-step-btn" data-step-target="quiet">Quiet Hours</button>' +
+      '</div>';
+    open("Notification preferences", body, function (data) {
+      const f = form();
+      const followedProjects = Array.from(f.querySelector('[name="followedProjects"]').selectedOptions).map(o => o.value);
+      const followedTasks = Array.from(f.querySelector('[name="followedTasks"]').selectedOptions).map(o => o.value);
+      const toastEvents = allEventTypes.filter(et => f.querySelector('[name="toast_' + et + '"]').checked);
+      const sound = data.sound === "on";
+      const quietEnabled = data.quietEnabled === "on";
+      const quietHours = { start: data.quietStart, end: data.quietEnd, enabled: quietEnabled };
+      const reminderTiming = data.reminderTiming;
+      close();
+      const idx = state.notificationPrefs.findIndex(p => p.user === me);
+      const updatedPrefs = { user: me, followedProjects, followedTasks, toastEvents, sound, quietHours: { ...prefs.quietHours, start: data.quietStart, end: data.quietEnd, enabled: quietEnabled }, reminderTiming };
+      if (idx >= 0) state.notificationPrefs[idx] = updatedPrefs;
+      else state.notificationPrefs.push(updatedPrefs);
+      commit();
+      U.toast("Notification preferences saved.");
+    }, "Save preferences", {
+      onOpen: function (f) {
+        f.querySelectorAll(".wizard-step-btn").forEach(btn => {
+          btn.addEventListener("click", function () {
+            const target = btn.dataset.stepTarget;
+            f.querySelectorAll(".wizard-step-content").forEach(c => c.style.display = "none");
+            f.querySelector('[data-step="' + target + '"]').style.display = "";
+            f.querySelectorAll(".wizard-step-btn").forEach(b => b.classList.toggle("active", b.dataset.stepTarget === target));
+          });
+        });
+        f.querySelector('[data-step="follow"]').style.display = "";
+        f.querySelector('[data-step-target="follow"]').classList.add("active");
+      }
+    });
   }
 
   const IMPORT_FIELDS = [
@@ -1084,6 +1258,7 @@ window.Modals = (function () {
     templatesApplyModal: templatesApplyModal,
     templatesManageModal: templatesManageModal,
     assignProjectsModal: assignProjectsModal,
+    notificationPrefsModal: notificationPrefsModal,
     importWizardModal: importWizardModal
   };
 })();

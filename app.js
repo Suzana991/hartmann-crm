@@ -19,6 +19,9 @@ window.App = (function () {
     taskDue: "",
     taskKind: "",
     taskView: "list",
+    taskProjectFilter: "",
+    taskStageFilter: "",
+    taskSort: "dueDate",
     myOwner: readMyOwner(),
     myTasksOnly: false,
     detailInvestorId: null,
@@ -30,6 +33,7 @@ window.App = (function () {
     ovProject: "",
     ovOwner: "",
     ovPeriod: "30",
+    ovWorkQueue: "mine",
     stageDetail: null,
     selectedInvestors: []
   };
@@ -53,13 +57,18 @@ window.App = (function () {
 
   function emptyState() {
     return {
-      schemaVersion: 3,
+      schemaVersion: 4,
       investors: [],
       projects: [],
       activities: [],
       tasks: [],
       taskTemplates: CRM_MIGRATION.defaultTaskTemplates(),
-      activeProjectId: null
+      activeProjectId: null,
+      notifications: [],
+      notificationPrefs: [
+        { user: "Suzana", followedProjects: [], followedTasks: [], reminderTiming: "15min", toastEvents: ["task_assigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"], sound: false, quietHours: { start: "22:00", end: "08:00" } },
+        { user: "Bruno", followedProjects: [], followedTasks: [], reminderTiming: "15min", toastEvents: ["task_assigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"], sound: false, quietHours: { start: "22:00", end: "08:00" } }
+      ]
     };
   }
 
@@ -127,6 +136,7 @@ window.App = (function () {
       primary.classList.add("hidden");
     }
     updateBadge();
+    updateNotifBadge();
 
     document.querySelectorAll(".view").forEach(function (v) { v.classList.add("hidden"); });
     const container = el("view-" + ui.view);
@@ -467,19 +477,47 @@ window.App = (function () {
   function notifRender() {
     const list = el("notif-list");
     if (!list) return;
-    if (!changes.loaded) { list.innerHTML = '<div class="empty-mini">Loading recent changes…</div>'; return; }
-    if (!changes.items.length) { list.innerHTML = '<div class="empty-mini">No changes recorded yet.</div>'; return; }
-    const seen = seenTs();
-    list.innerHTML = changes.items.slice(0, 30).map(function (it) {
-      const unread = it.ts && (!seen || it.ts > seen);
-      const proj = it.projectName || "";
-      const link = it.projectId ? ' <button class="link-btn" data-action="open-project" data-id="' + U.esc(it.projectId) + '" data-stop>Open</button>' : "";
-      return '<div class="notif-row' + (unread ? " unread" : "") + '">' +
-        '<div class="notif-line"><span class="notif-who">' + U.esc(it.user || "Team member") + '</span>' +
-        '<span class="notif-when">' + U.esc(fmtChangeTime(it.ts)) + '</span></div>' +
-        '<div class="notif-what">' + U.esc(it.summary) + (proj ? ' <span class="notif-proj">' + U.esc(proj) + '</span>' : "") + link + '</div>' +
-        '</div>';
-    }).join("");
+    if (!state) { list.innerHTML = '<div class="empty-mini">Loading…</div>'; return; }
+    const notifications = state.notifications || [];
+    if (!notifications.length) { list.innerHTML = '<div class="empty-mini">No notifications yet.</div>'; return; }
+    const me = identity.name || ui.myOwner;
+    const prefs = state.notificationPrefs ? state.notificationPrefs.find(p => p.user === me) : null;
+
+    const needsAction = notifications.filter(n => !n.read && ["task_assigned", "task_reassigned", "mention", "comment", "reminder_due", "overdue", "dependency_completed", "agreement_followup"].includes(n.type));
+    const teamActivity = notifications.filter(n => !n.read && ["status_change", "deadline_change", "project_change"].includes(n.type));
+    const read = notifications.filter(n => n.read).slice(0, 20);
+
+    const renderSection = (title, items, emptyMsg, showActions) => {
+      if (!items.length) return '<div class="notif-section"><h4>' + U.esc(title) + '</h4><div class="empty-mini">' + U.esc(emptyMsg) + '</div></div>';
+      return '<div class="notif-section"><h4>' + U.esc(title) + ' <span class="notif-count">' + items.length + '</span></h4>' +
+        items.map(function (n) {
+          const time = U.esc(fmtChangeTime(n.createdAt));
+const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-project" data-id="' + U.esc(n.projectId) + '" data-stop>Open project</button>' : "";
+        const taskLink = n.taskId ? ' <button class="link-btn" data-action="edit-task" data-id="' + U.esc(n.taskId) + '" data-stop>Open task</button>' : "";
+        let actions = "";
+        if (showActions && !n.read) {
+          actions = '<div class="notif-actions">';
+          if (n.type === "task_assigned" || n.type === "task_reassigned") {
+            actions += '<button class="link-btn" data-action="edit-task" data-id="' + U.esc(n.taskId) + '" data-stop>Open task</button>';
+          }
+          if (n.type === "reminder_due" || n.type === "overdue") {
+            actions += '<button class="link-btn" data-action="snooze-reminder" data-notif-id="' + U.esc(n.id) + '" data-stop>Snooze</button>';
+          }
+          actions += '<button class="link-btn" data-action="mark-notif-read" data-id="' + U.esc(n.id) + '" data-stop>Mark read</button>';
+          actions += '</div>';
+        }
+          return '<div class="notif-row' + (n.read ? " read" : " unread") + '" data-notif-id="' + U.esc(n.id) + '">' +
+            '<div class="notif-line"><span class="notif-who">' + U.esc(n.type.replace(/_/g, " ")) + '</span><span class="notif-when">' + time + '</span></div>' +
+            '<div class="notif-what">' + U.esc(n.message) + projectLink + taskLink + '</div>' +
+            actions +
+            '</div>';
+        }).join("") + '</div>';
+    };
+
+    list.innerHTML =
+      renderSection("Needs action", needsAction, "Nothing needs your attention right now.", true) +
+      renderSection("Team activity", teamActivity, "No recent team activity.", false) +
+      renderSection("Read", read, "No read notifications.", false);
   }
 
   function openNotif() {
@@ -569,6 +607,20 @@ window.App = (function () {
     let n = 0;
     for (const m of chat.messages) { if (m.author !== me && m.seq > (chat.reads[me] || 0)) n++; }
     document.querySelectorAll("#chat-badge, [data-badge='chat']").forEach(function (badge) {
+      badge.textContent = n;
+      badge.classList.toggle("hidden", n === 0);
+    });
+  }
+
+  function updateNotifBadge() {
+    if (!state) return;
+    const me = identity.name || ui.myOwner;
+    const notifications = state.notifications || [];
+    let n = 0;
+    for (const notif of notifications) {
+      if (!notif.read && notif.recipient === me) n++;
+    }
+    document.querySelectorAll("#notif-badge, [data-badge='notif']").forEach(function (badge) {
       badge.textContent = n;
       badge.classList.toggle("hidden", n === 0);
     });
@@ -799,43 +851,29 @@ window.App = (function () {
     }
   }
 
-  function remapIds(incoming) {
-    const map = new Map();
-    function newId(old) {
-      if (!old) return U.uid();
-      if (!map.has(old)) map.set(old, U.uid());
-      return map.get(old);
+  function addNotification(type, recipient, taskId, projectId, message) {
+    if (!state) return;
+    const notif = {
+      id: U.uid(),
+      type: type,
+      recipient: recipient,
+      taskId: taskId,
+      projectId: projectId,
+      message: message,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    state.notifications = state.notifications || [];
+    state.notifications.unshift(notif);
+    // Keep only last 1000 notifications
+    if (state.notifications.length > 1000) state.notifications = state.notifications.slice(0, 1000);
+    Store.markDirty();
+    // Show toast if enabled for this type
+    const prefs = state.notificationPrefs || [];
+    const pref = prefs.find(p => p.user === recipient);
+    if (pref && pref.toastEvents && pref.toastEvents.includes(type)) {
+      U.toast(message, "info");
     }
-    incoming.investors.forEach(function (i) {
-      i.contacts.forEach(function (c) { c.id = newId("c:" + c.id); });
-      i.id = newId("i:" + i.id);
-    });
-    incoming.projects.forEach(function (p) {
-      p.engagements.forEach(function (e) { e.id = newId("e:" + e.id); });
-      p.id = newId("p:" + p.id);
-    });
-    incoming.investors.forEach(function (i) {
-      i.contacts.forEach(function (c) { });
-    });
-    incoming.projects.forEach(function (p) {
-      p.engagements.forEach(function (e) {
-        e.investorId = map.get("i:" + e.investorId) || e.investorId;
-        e.contactIds = (e.contactIds || []).map(function (cid) { return map.get("c:" + cid) || cid; });
-      });
-    });
-    incoming.activities.forEach(function (a) {
-      a.id = newId("a:" + a.id);
-      a.engagementId = map.get("e:" + a.engagementId) || a.engagementId;
-      if (a.contactId) a.contactId = map.get("c:" + a.contactId) || a.contactId;
-    });
-    incoming.tasks.forEach(function (t) {
-      t.id = newId("t:" + t.id);
-      if (t.projectId) t.projectId = map.get("p:" + t.projectId) || t.projectId;
-      if (t.engagementId) t.engagementId = map.get("e:" + t.engagementId) || t.engagementId;
-      if (t.contactId) t.contactId = map.get("c:" + t.contactId) || t.contactId;
-    });
-    if (incoming.activeProjectId) incoming.activeProjectId = map.get("p:" + incoming.activeProjectId) || incoming.activeProjectId;
-    return incoming;
   }
 
   function shiftAnchor(dir) {
@@ -1049,7 +1087,7 @@ window.App = (function () {
     },
     "bulk-assign": function () { Modals.assignProjectsModal(state, ui.selectedInvestors.slice()); },
     "clear-selection": function () { ui.selectedInvestors = []; render(); },
-    "import-investors": function () { Modals.importWizardModal(state, {}); },
+    "ov-workqueue": function (ds) { ui.ovWorkQueue = ds.ovWorkqueue; render(); },
     "cal-prev": function () { shiftAnchor(-1); },
     "cal-next": function () { shiftAnchor(1); },
     "cal-today": function () { ui.calendarAnchor = U.todayISO(); render(); },
@@ -1057,6 +1095,27 @@ window.App = (function () {
     "task-view": function (ds) { ui.taskView = ds.taskView || "list"; render(); },
     "calendar-add": function (ds) {
       Modals.taskModal(state, null, { dueDate: ds.date, projectId: state ? state.activeProjectId : "" });
+    },
+    "complete-task": function (ds) {
+      const t = state.tasks.find(function (x) { return x.id === ds.id; });
+      if (t) {
+        t.status = "Completed";
+        t.history = t.history || [];
+        t.history.push({ id: U.uid(), date: new Date().toISOString(), field: "status", from: "In progress", to: "Completed", by: getMyOwner() || "" });
+        commit();
+        U.toast("Task completed.");
+      }
+    },
+    "reschedule-task": function (ds) {
+      const t = state.tasks.find(function (x) { return x.id === ds.id; });
+      if (t) {
+        const newDue = prompt("New due date (YYYY-MM-DD):", t.dueDate || "");
+        if (newDue && U.isValidISODate(newDue)) {
+          t.dueDate = newDue;
+          commit();
+          U.toast("Task rescheduled.");
+        }
+      }
     },
     "export-json": function () {
       U.downloadBlob(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), "hartmann-crm-backup.json");
@@ -1073,6 +1132,7 @@ window.App = (function () {
       applyTheme(next);
       try { localStorage.setItem("hartmann-crm-theme", next); } catch (e) { }
     },
+    "notification-prefs": function () { Modals.notificationPrefsModal(state); },
     "toggle-menu": function () { el("menu").classList.toggle("hidden"); },
     "toggle-drawer": function () { toggleDrawer(); },
     "close-drawer": function () { closeDrawer(); },
@@ -1120,6 +1180,20 @@ window.App = (function () {
       if (isUnsafeToRefresh()) { U.toast("Finish or save your current edit, then refresh.", "info"); return; }
       clearTimeout(sync.timer);
       await refreshNow();
+    },
+    "mark-notif-read": function (ds) {
+      const notif = state.notifications.find(n => n.id === ds.id);
+      if (notif) { notif.read = true; Store.markDirty(); notifRender(); updateNotifBadge(); }
+    },
+    "snooze-reminder": function (ds) {
+      const notif = state.notifications.find(n => n.id === ds.notifId);
+      if (notif) {
+        const snoozeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        notif.snoozedUntil = snoozeUntil;
+        Store.markDirty();
+        notifRender();
+        U.toast("Reminder snoozed for 24 hours.");
+      }
     },
     "_conflictPayload": null
   };
@@ -1229,8 +1303,11 @@ window.App = (function () {
     return Object.assign({
       id: U.uid(),
       title: "",
+      description: "",
       owner: "",
+      collaborator: "",
       dueDate: "",
+      dueTime: "",
       status: "To do",
       waitingReason: "",
       priority: "",
@@ -1243,7 +1320,14 @@ window.App = (function () {
       templateKey: "",
       legacy: false,
       source: "",
-      reviewFlags: []
+      reviewFlags: [],
+      checklist: [],
+      comments: [],
+      history: [],
+      nextFollowUp: "",
+      reminder: "",
+      recurring: null,
+      dependencies: []
     }, data);
   }
 
@@ -1550,10 +1634,51 @@ window.App = (function () {
   function commitTask(id, data) {
     if (id) {
       const t = state.tasks.find(function (x) { return x.id === id; });
-      if (t) Object.assign(t, data);
+      if (t) {
+        const oldData = JSON.parse(JSON.stringify(t));
+        Object.assign(t, data);
+        // Record history for owner, deadline, status changes
+        const changes = [];
+        if (oldData.owner !== t.owner) changes.push({ field: "owner", from: oldData.owner, to: t.owner });
+        if (oldData.dueDate !== t.dueDate) changes.push({ field: "dueDate", from: oldData.dueDate, to: t.dueDate });
+        if (oldData.status !== t.status) changes.push({ field: "status", from: oldData.status, to: t.status });
+        if (oldData.priority !== t.priority) changes.push({ field: "priority", from: oldData.priority, to: t.priority });
+        if (oldData.owner !== t.owner && t.owner) {
+          addNotification("task_reassigned", t.owner, t.id, t.projectId, "Task reassigned to you: " + t.title);
+        } else if (!oldData.owner && t.owner) {
+          addNotification("task_assigned", t.owner, t.id, t.projectId, "Task assigned to you: " + t.title);
+        }
+        if (changes.length > 0) {
+          t.history = t.history || [];
+          changes.forEach(function (c) {
+            t.history.push({
+              id: U.uid(),
+              date: new Date().toISOString(),
+              field: c.field,
+              from: c.from,
+              to: c.to,
+              by: getMyOwner() || ""
+            });
+          });
+        }
+        // Check for @mentions in notes
+        const mentionMatch = (t.notes || "").match(/@(Suzana|Bruno)/g);
+        if (mentionMatch) {
+          mentionMatch.forEach(function (m) {
+            const mentioned = m.slice(1);
+            if (mentioned !== getMyOwner()) {
+              addNotification("mention", mentioned, t.id, t.projectId, "You were mentioned in task: " + t.title);
+            }
+          });
+        }
+      }
       U.toast("Task updated.");
     } else {
       state.tasks.push(newTask(data));
+      const newTaskObj = state.tasks[state.tasks.length - 1];
+      if (newTaskObj.owner) {
+        addNotification("task_assigned", newTaskObj.owner, newTaskObj.id, newTaskObj.projectId, "Task assigned to you: " + newTaskObj.title);
+      }
       U.toast(data.kind === "appointment" ? "Appointment created." : "Task created.");
     }
     commit();
@@ -1836,6 +1961,9 @@ window.App = (function () {
       if (kind === "taskProjectOnly") { ui.taskProjectOnly = target.checked; render(); return; }
       if (kind === "taskDue") { ui.taskDue = target.value; render(); return; }
       if (kind === "taskKind") { ui.taskKind = target.value; render(); return; }
+      if (kind === "taskProjectFilter") { ui.taskProjectFilter = target.value; render(); return; }
+      if (kind === "taskStageFilter") { ui.taskStageFilter = target.value; render(); return; }
+      if (kind === "taskSort") { ui.taskSort = target.value; render(); return; }
       if (kind === "myOwner") { setMyOwner(target.value); render(); return; }
       if (kind === "myTasksOnly") { ui.myTasksOnly = target.checked; render(); return; }
       if (kind === "calendarOwner") { ui.calendarOwner = target.value; render(); return; }

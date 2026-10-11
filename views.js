@@ -192,7 +192,7 @@ window.Views = (function () {
     return undated || null;
   }
 
-  function overview(state, ui) {
+function overview(state, ui) {
     const engs = allEngagements(state);
     const open = openTasks(state);
     const flags = reviewCount(state);
@@ -269,6 +269,61 @@ window.Views = (function () {
     const portfolioBody = portfolio ||
       '<tr><td colspan="6"><div class="empty-mini">No projects match the current filters.</div></td></tr>';
 
+    // --- Actionable Work Queue ---
+    const me = ui.myOwner || "";
+    const workQueueTabs = '<div class="view-tabs" style="margin-bottom:8px">' +
+      '<button type="button" class="view-tab' + (ui.ovWorkQueue !== "bruno" && ui.ovWorkQueue !== "all" ? " active" : "") + '" data-action="ov-workqueue" data-ov-workqueue="mine">Mine</button>' +
+      '<button type="button" class="view-tab' + (ui.ovWorkQueue === "bruno" ? " active" : "") + '" data-action="ov-workqueue" data-ov-workqueue="bruno">Bruno\'s</button>' +
+      '<button type="button" class="view-tab' + (ui.ovWorkQueue === "all" ? " active" : "") + '" data-action="ov-workqueue" data-ov-workqueue="all">All</button>' +
+      "</div>";
+
+    const workQueueFilter = ui.ovWorkQueue === "bruno" ? "Bruno" : (ui.ovWorkQueue === "all" ? "" : (me || ""));
+    const workQueueTasks = state.tasks.filter(function (t) {
+      if (t.status === "Completed") return false;
+      if (workQueueFilter && t.owner !== workQueueFilter) return false;
+      if (fProject && t.projectId !== fProject) return false;
+      return true;
+    }).sort(function (a, b) {
+      // Overdue first, then due today, then upcoming
+      const aOverdue = U.isOverdue(a);
+      const bOverdue = U.isOverdue(b);
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      const aToday = U.dueToday(a);
+      const bToday = U.dueToday(b);
+      if (aToday !== bToday) return aToday ? -1 : 1;
+      const ad = a.dueDate || "9999-12-31";
+      const bd = b.dueDate || "9999-12-31";
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      return 0;
+    }).slice(0, 15);
+
+    const workQueueHtml = workQueueTasks.map(function (t) {
+      const proj = t.projectId ? projectById(state, t.projectId) : null;
+      const overdue = U.isOverdue(t);
+      return '<div class="work-queue-row"' + (overdue ? ' style="border-left:3px solid var(--danger)"' : "") + '>' +
+        '<div class="wq-main">' +
+          '<div class="wq-title">' + U.esc(t.title) + (t.kind === "appointment" ? ' <span class="chip chip-warning">appt</span>' : "") + '</div>' +
+          '<div class="wq-meta">' +
+            (t.projectId ? '<span class="chip chip-plain">' + U.esc(projectById(state, t.projectId) || {}).name + '</span>' : "") +
+            '<span class="chip chip-plain">' + U.esc(t.owner || "Unassigned") + '</span>' +
+            (t.dueDate ? '<span class="' + (overdue ? "overdue" : "") + '">due ' + U.esc(U.fmtDate(t.dueDate)) + (t.dueTime ? " " + U.esc(t.dueTime) : "") + '</span>' : '<span class="cell-muted">no due date</span>') +
+            '<span class="chip ' + (t.status === "Completed" ? "chip-success" : t.status === "In progress" ? "chip-info" : t.status === "Waiting" ? "chip-warning" : "chip-plain") + '">' + U.esc(t.status) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wq-actions">' +
+          '<button class="link-btn" data-action="edit-task" data-id="' + U.esc(t.id) + '">Open</button>' +
+          (t.status !== "Completed" ? '<button class="link-btn" data-action="complete-task" data-id="' + U.esc(t.id) + '">Complete</button>' : "") +
+          '<button class="link-btn" data-action="reschedule-task" data-id="' + U.esc(t.id) + '">Reschedule</button>' +
+        '</div>' +
+      '</div>';
+    }).join("") || '<div class="empty-mini">No tasks in this queue.</div>';
+
+    const workQueue = '<div class="panel">' +
+      '<div class="panel-head"><h3>Your next actions</h3></div>' +
+      '<div class="panel-body">' + workQueueTabs + '<div class="work-queue-list">' + workQueueHtml + '</div></div>' +
+    '</div>';
+
+    // --- Needs Attention ---
     const attention = [
       { label: "Overdue", value: overdue, sub: "tasks past due", filter: "overdue", alert: overdue > 0 },
       { label: "Due today", value: today, sub: "tasks due " + U.fmtDate(U.todayISO()), filter: "today", alert: today > 0 },
@@ -282,6 +337,11 @@ window.Views = (function () {
         '<div class="stat-sub">' + U.esc(c.sub) + "</div>" +
         "</button>";
     }).join("");
+
+    const attentionPanel = '<div class="panel">' +
+      '<div class="panel-head"><h3>Needs attention</h3></div>' +
+      '<div class="panel-body"><div class="attention-grid">' + attention + '</div></div>' +
+    '</div>';
 
     const from = U.todayISO();
     const to = period > 0 ? U.addDaysISO(from, period) : "9999-12-31";
@@ -336,22 +396,23 @@ window.Views = (function () {
          { label: "Investors", value: state.investors.length },
          { label: "Engagements", value: engs.length },
          { label: "Contacted", value: engs.filter(isContacted).length }].map(function (c) {
-          return '<div class="stat-card"><div class="stat-value">' + c.value + '</div><div class="stat-label">' + U.esc(c.label) + "</div></div>";
-        }).join("") +
+           return '<div class="stat-card"><div class="stat-value">' + c.value + '</div><div class="stat-label">' + U.esc(c.label) + "</div></div>";
+         }).join("") +
       "</div>" +
       '<div class="panel"><div class="panel-head"><h3>Project portfolio</h3><span class="legend">' + activeProjects.length + " project" + (activeProjects.length === 1 ? "" : "s") + "</span></div>" +
         '<div class="panel-body no-pad"><div class="table-wrap"><table class="data-table"><thead><tr>' +
         "<th>Project</th><th>Stage</th><th>Agreement</th><th>Lead</th><th>Next milestone</th><th></th></tr></thead><tbody>" +
         portfolioBody + "</tbody></table></div></div></div>" +
       '<div class="ov-split">' +
-        '<div class="panel"><div class="panel-head"><h3>Your next actions</h3></div><div class="panel-body"><div class="attention-grid">' + attention + "</div></div></div>" +
+        workQueue +
         '<div class="panel"><div class="panel-head"><h3>Upcoming</h3><span class="legend">' + periodLabel + "</span></div><div class=\"panel-body list\">" + upcoming + "</div></div>" +
       "</div>" +
+      attentionPanel +
       '<div class="panel"><div class="panel-head"><h3>Institutions contacted</h3><span class="legend">' + contactedTotal + " of " + engs.length + " engagement" + (engs.length === 1 ? "" : "s") + "</span></div>" +
         '<div class="panel-body no-pad"><div class="table-wrap"><table class="data-table"><thead><tr>' +
         "<th>Institution</th><th>Type</th><th>Project</th><th>Discussion stage</th><th>Last outreach</th><th>Owner</th></tr></thead><tbody>" +
         contactedBody + "</tbody></table></div></div></div>" +
-      '<details class="panel ov-secondary"><summary class="panel-head"><h3>Investor discussion stages</h3><span class="legend">" + ... + "</span></summary>' +
+      '<details class="panel ov-secondary"><summary class="panel-head"><h3>Investor discussion stages</h3><span class="legend">Distribution</span></summary>' +
         '<div class="panel-body">' +
           '<p class="ov-note">Discussion stages describe where each investor engagement stands. “Not contacted” is a discussion stage; it is distinct from <strong>No outreach recorded</strong>, which counts engagements that have no outreach activity at all.</p>' +
           pipeline +
@@ -806,7 +867,7 @@ window.Views = (function () {
     }
     const search = U.normalizeKey(ui.search);
     if (search) {
-      rows = rows.filter(function (t) { return U.normalizeKey(t.title + " " + t.notes).indexOf(search) !== -1; });
+      rows = rows.filter(function (t) { return U.normalizeKey(t.title + " " + t.description + " " + t.notes).indexOf(search) !== -1; });
     }
     rows.sort(function (a, b) {
       const done = (a.status === "Completed" ? 1 : 0) - (b.status === "Completed" ? 1 : 0);
@@ -841,14 +902,33 @@ window.Views = (function () {
     }).join("");
 
     const viewTabs = '<div class="view-tabs">' +
-      '<button type="button" class="view-tab' + (ui.taskView !== "kanban" ? " active" : "") + '" data-action="task-view" data-task-view="list">List</button>' +
+      '<button type="button" class="view-tab' + (ui.taskView !== "kanban" && ui.taskView !== "calendar" ? " active" : "") + '" data-action="task-view" data-task-view="list">List</button>' +
       '<button type="button" class="view-tab' + (ui.taskView === "kanban" ? " active" : "") + '" data-action="task-view" data-task-view="kanban">Board</button>' +
+      '<button type="button" class="view-tab' + (ui.taskView === "calendar" ? " active" : "") + '" data-action="task-view" data-task-view="calendar">Calendar</button>' +
       "</div>";
 
     const myOptions = ['<option value="">View as: anyone</option>'].concat(
       ["Suzana", "Bruno"].map(function (t) {
         return '<option value="' + t + '"' + (ui.myOwner === t ? " selected" : "") + ">" + t + "</option>";
       })).join("");
+
+    const projectFilterOptions = ['<option value="">All projects</option>'].concat(
+      state.projects.filter(function (p) { return !p.archived; }).map(function (p) {
+        return '<option value="' + U.esc(p.id) + '"' + (ui.taskProjectFilter === p.id ? " selected" : "") + ">" + U.esc(p.name) + "</option>";
+      })).join("");
+
+    const stageFilterOptions = ['<option value="">All stages</option>'].concat(
+      U.PROJECT_STAGES.map(function (s) {
+        return '<option value="' + U.esc(s.id) + '"' + (ui.taskStageFilter === s.id ? " selected" : "") + ">" + U.esc(s.label) + "</option>";
+      })).join("");
+
+    const sortOptions = [
+      { value: "dueDate", label: "Deadline" },
+      { value: "priority", label: "Priority" },
+      { value: "created", label: "Created" }
+    ].map(function (s) {
+      return '<option value="' + s.value + '"' + (ui.taskSort === s.value ? " selected" : "") + ">" + s.label + "</option>";
+    }).join("");
 
     const toolbar = '<div class="toolbar">' +
       viewTabs +
@@ -859,6 +939,9 @@ window.Views = (function () {
       '<select data-change="taskOwner"><option value="">Anyone</option>' +
       U.TEAM.map(function (t) { return '<option value="' + U.esc(t) + '"' + (ui.taskOwner === t ? " selected" : "") + ">" + U.esc(t) + "</option>"; }).join("") +
       "</select>" +
+      '<select data-change="taskProjectFilter">' + projectFilterOptions + "</select>" +
+      '<select data-change="taskStageFilter">' + stageFilterOptions + "</select>" +
+      '<select data-change="taskSort">' + sortOptions + "</select>" +
       '<select data-change="myOwner" class="my-tasks-pref" title="Remember who is using this device">' + myOptions + "</select>" +
       (ui.myOwner ? '<label class="check-line"><input type="checkbox" data-change="myTasksOnly"' + (ui.myTasksOnly ? " checked" : "") + " /> Only my tasks</label>" : "") +
       '<label class="check-line"><input type="checkbox" data-change="taskProjectOnly"' + (ui.taskProjectOnly ? " checked" : "") + " /> Current project only</label>" +
@@ -874,6 +957,7 @@ window.Views = (function () {
             '<div class="kc-meta">' +
             (t.kind === "appointment" ? '<span class="chip chip-warning">appt</span>' : "") +
             (t.owner ? '<span class="chip chip-plain">' + U.esc(t.owner) + "</span>" : "") +
+            (t.collaborator ? '<span class="chip chip-info">' + U.esc(t.collaborator) + "</span>" : "") +
             (t.dueDate ? '<span class="' + (overdue ? "overdue" : "") + '">' + U.esc(U.fmtDate(t.dueDate)) + "</span>" : "") +
             U.priorityChip(t.priority) +
             (t.stage ? U.projectStageChip(t.stage) : "") +
@@ -887,42 +971,162 @@ window.Views = (function () {
       return toolbar + '<div class="kanban">' + cols + "</div>";
     }
 
+    if (ui.taskView === "calendar") {
+      return toolbar + renderTaskCalendar(state, ui, rows);
+    }
+
     if (rows.length === 0) {
       return toolbar + '<div class="empty-state"><p>No tasks match.</p><button class="primary-btn" data-action="add-task">+ Add task</button></div>';
     }
 
-    const body = rows.map(function (t) {
-      const proj = t.projectId ? projectById(state, t.projectId) : null;
-      let linked = "";
-      if (t.engagementId) {
-        const found = findEngagement(state, t.engagementId);
-        if (found) {
-          const inv = investorById(state, found.engagement.investorId);
-          linked = found.project.name + " → " + (inv ? inv.name : "?");
-        }
-      } else if (proj) linked = proj.name;
-      const overdue = U.isOverdue(t);
-      return '<div class="task-row' + (t.status === "Completed" ? " done" : "") + '">' +
-        '<input type="checkbox" class="task-check" data-change="toggle-task" data-id="' + U.esc(t.id) + '"' + (t.status === "Completed" ? " checked" : "") + " />" +
-        '<div class="task-main">' +
-        '<div class="task-title">' + U.esc(t.title) +
-        (t.kind === "appointment" ? ' <span class="chip chip-warning">appointment</span>' : "") +
-        (t.source === "legacy-nextSteps" ? ' <span class="chip chip-plain" title="Created from legacy next steps">legacy</span>' : "") + "</div>" +
-        '<div class="task-sub">' + U.esc(linked || "No project") +
-        (t.owner ? " · " + U.esc(t.owner) : "") +
-        (t.dueDate ? ' · <span class="' + (overdue ? "overdue" : "") + '">due ' + U.esc(U.fmtDate(t.dueDate)) + "</span>" : " · no due date") +
-        (t.status === "Waiting" && t.waitingReason ? " · waiting: " + U.esc(t.waitingReason) : "") +
-        "</div></div>" +
-        (t.stage ? U.projectStageChip(t.stage) : "") +
-        '<span class="chip ' + (t.status === "Completed" ? "chip-success" : t.status === "In progress" ? "chip-info" : t.status === "Waiting" ? "chip-warning" : "chip-plain") + '">' + U.esc(t.status) + "</span>" +
-        U.priorityChip(t.priority) +
-        '<div class="row-actions">' +
-        '<button class="ghost-btn" data-action="edit-task" data-id="' + U.esc(t.id) + '">Edit</button>' +
-        '<button class="ghost-btn danger" data-action="delete-task" data-id="' + U.esc(t.id) + '">Delete</button>' +
-        "</div></div>";
+    // Separate completed tasks
+    const openTasks = rows.filter(function (t) { return t.status !== "Completed"; });
+    const completedTasks = rows.filter(function (t) { return t.status === "Completed"; });
+
+    const body = openTasks.map(function (t) {
+      return renderTaskRow(state, t);
     }).join("");
 
-    return toolbar + '<div class="task-list">' + body + "</div>";
+    let completedHtml = "";
+    if (completedTasks.length > 0) {
+      completedHtml = '<details class="completed-tasks" open><summary class="completed-summary">Completed (' + completedTasks.length + ')</summary>' +
+        '<div class="task-list completed-list">' +
+        completedTasks.map(function (t) { return renderTaskRow(state, t); }).join("") +
+        '</div></details>';
+    }
+
+    return toolbar + '<div class="task-list">' + body + completedHtml + "</div>";
+  }
+
+  function renderTaskCalendar(state, ui, tasks) {
+    const anchor = ui.calendarAnchor && U.isValidISODate(ui.calendarAnchor) ? ui.calendarAnchor : U.todayISO();
+    const items = tasks.filter(function (t) { return t.dueDate && U.isValidISODate(t.dueDate); });
+    const byDate = {};
+    items.forEach(function (it) { (byDate[it.dueDate] = byDate[it.dueDate] || []).push(it); });
+
+    const tabs = ["month", "week", "agenda"].map(function (v) {
+      return '<button type="button" class="view-tab' + (ui.calendarView === v ? " active" : "") + '" data-action="cal-view" data-cal-view="' + v + '">' +
+        v.charAt(0).toUpperCase() + v.slice(1) + "</button>";
+    }).join("");
+
+    const owners = ["", "Suzana", "Bruno", "Both"].map(function (o) {
+      return '<option value="' + U.esc(o) + '"' + (ui.calendarOwner === o ? " selected" : "") + ">" + (o || "Anyone") + "</option>";
+    }).join("");
+
+    const kinds = [
+      { value: "", label: "Everything" },
+      { value: "tasks", label: "Tasks" },
+      { value: "appointments", label: "Appointments" }
+    ].map(function (k) {
+      return '<option value="' + k.value + '"' + (ui.calendarKind === k.value ? " selected" : "") + ">" + k.label + "</option>";
+    }).join("");
+
+    const toolbar = '<div class="cal-toolbar">' +
+      '<button type="button" class="ghost-btn" data-action="cal-prev" title="Previous">‹</button>' +
+      '<button type="button" class="ghost-btn" data-action="cal-today">Today</button>' +
+      '<button type="button" class="ghost-btn" data-action="cal-next" title="Next">›</button>' +
+      '<strong class="legend">' + (ui.calendarView === "month"
+        ? U.MONTHS[Number(anchor.slice(5, 7)) - 1] + " " + anchor.slice(0, 4)
+        : U.fmtDate(anchor)) + "</strong>" +
+      '<span class="spacer"></span>' + tabs +
+      '<select data-change="calendarOwner">' + owners + "</select>" +
+      '<select data-change="calendarKind">' + kinds + "</select>" +
+      "</div>";
+
+    if (ui.calendarView === "agenda") {
+      const today = U.todayISO();
+      const start = anchor < today ? today : anchor;
+      const end = U.addDaysISO(start, 60);
+      const overdue = items.filter(function (it) { return it.kind === "task" && it.date < today && !it.done; });
+      const upcoming = items.filter(function (it) { return it.date >= start && it.date <= end; });
+      const group = function (list) {
+        const days = {};
+        list.forEach(function (it) { (days[it.date] = days[it.date] || []).push(it); });
+        return Object.keys(days).sort().map(function (d) {
+          return '<div class="agenda-day">' + U.esc(U.fmtDate(d)) + (d === today ? " — today" : "") + "</div>" +
+            days[d].map(function (it) {
+              const proj = it.projectId ? projectById(state, it.projectId) : null;
+              return '<div class="cal-list-row">' +
+                '<span class="clr-date">' + U.esc(U.fmtDate(it.date)) + "</span>" +
+                '<button type="button" class="link-btn" data-action="edit-task" data-id="' + U.esc(it.id) + '">' + U.esc(it.title) + "</button>" +
+                '<span class="clr-kind" style="color:' + it.color + '">' + U.esc(it.kind) + "</span>" +
+                "</div>";
+            }).join("");
+        }).join("");
+      };
+      return toolbar + '<div class="panel"><div class="panel-body">' +
+        (overdue.length ? '<div class="agenda-day" style="color:var(--danger)">Overdue</div>' + overdue.map(function (it) {
+          return '<div class="cal-list-row">' +
+            '<span class="clr-date overdue">' + U.esc(U.fmtDate(it.date)) + "</span>" +
+            '<button type="button" class="link-btn" data-action="edit-task" data-id="' + U.esc(it.id) + '">' + U.esc(it.title) + "</button>" +
+            '<span class="clr-kind" style="color:' + it.color + '">' + U.esc(it.kind) + "</span>" +
+            "</div>";
+        }).join("") : "") +
+        (upcoming.length ? group(upcoming) : '<div class="empty-mini">Nothing scheduled in the next 60 days.</div>') +
+        "</div></div>";
+    }
+
+    const dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(function (d) {
+      return '<div class="cal-dow">' + d + "</div>";
+    }).join("");
+
+    if (ui.calendarView === "week") {
+      const start = U.startOfWeekISO(anchor);
+      const days = [];
+      for (let i = 0; i < 7; i++) days.push(U.addDaysISO(start, i));
+      const p = U.parseISO(start);
+      const endP = U.parseISO(days[6]);
+      return toolbar +
+        '<div class="legend" style="margin-bottom:8px">' + p.d + " " + U.MONTHS[p.m - 1] + " – " + endP.d + " " + U.MONTHS[endP.m - 1] + " " + endP.y + "</div>" +
+        '<div class="cal-grid">' + dow + days.map(function (d) { return calCellHtml(state, ui, byDate, d, true); }).join("") + "</div>";
+    }
+
+    const weeks = U.monthGrid(anchor);
+    return toolbar + '<div class="cal-grid">' + dow +
+      weeks.map(function (week) {
+        return week.map(function (d) { return calCellHtml(state, ui, byDate, d, d.slice(0, 7) === anchor.slice(0, 7)); }).join("");
+      }).join("") + "</div>";
+  }
+
+  function renderTaskRow(state, t) {
+    const proj = t.projectId ? projectById(state, t.projectId) : null;
+    let linked = "";
+    if (t.engagementId) {
+      const found = findEngagement(state, t.engagementId);
+      if (found) {
+        const inv = investorById(state, found.engagement.investorId);
+        linked = found.project.name + " → " + (inv ? inv.name : "?");
+      } else if (proj) {
+        linked = proj.name;
+      }
+    }
+    const overdue = U.isOverdue(t);
+    const hasChecklist = Array.isArray(t.checklist) && t.checklist.length > 0;
+    const checkedCount = hasChecklist ? t.checklist.filter(c => c.done).length : 0;
+    const totalCount = hasChecklist ? t.checklist.length : 0;
+    const hasComments = Array.isArray(t.comments) && t.comments.length > 0;
+    return '<div class="task-row' + (t.status === "Completed" ? " done" : "") + '">' +
+      '<input type="checkbox" class="task-check" data-change="toggle-task" data-id="' + U.esc(t.id) + '"' + (t.status === "Completed" ? " checked" : "") + " />" +
+      '<div class="task-main">' +
+      '<div class="task-title">' + U.esc(t.title) +
+      (t.kind === "appointment" ? ' <span class="chip chip-warning">appointment</span>' : "") +
+      (t.source === "legacy-nextSteps" ? ' <span class="chip chip-plain" title="Created from legacy next steps">legacy</span>' : "") +
+      (hasChecklist ? ' <span class="chip chip-plain">' + checkedCount + '/' + totalCount + '</span>' : "") +
+      (hasComments ? ' <span class="chip chip-info">💬</span>' : "") +
+      "</div>" +
+      '<div class="task-sub">' + U.esc(linked || "No project") +
+      (t.owner ? " · " + U.esc(t.owner) : "") +
+      (t.collaborator ? " · " + U.esc(t.collaborator) : "") +
+      (t.dueDate ? ' · <span class="' + (overdue ? "overdue" : "") + '">due ' + U.esc(U.fmtDate(t.dueDate)) + (t.dueTime ? " " + U.esc(t.dueTime) : "") + "</span>" : " · no due date") +
+      (t.status === "Waiting" && t.waitingReason ? " · waiting: " + U.esc(t.waitingReason) : "") +
+      "</div></div>" +
+      (t.stage ? U.projectStageChip(t.stage) : "") +
+      '<span class="chip ' + (t.status === "Completed" ? "chip-success" : t.status === "In progress" ? "chip-info" : t.status === "Waiting" ? "chip-warning" : "chip-plain") + '">' + U.esc(t.status) + "</span>" +
+      U.priorityChip(t.priority) +
+      '<div class="row-actions">' +
+      '<button class="ghost-btn" data-action="edit-task" data-id="' + U.esc(t.id) + '">Edit</button>' +
+      '<button class="ghost-btn danger" data-action="delete-task" data-id="' + U.esc(t.id) + '">Delete</button>' +
+      "</div></div>";
   }
 
   function detail(state, investorId) {
