@@ -304,7 +304,7 @@ function overview(state, ui) {
         '<div class="wq-main">' +
           '<div class="wq-title">' + U.esc(t.title) + (t.kind === "appointment" ? ' <span class="chip chip-warning">appt</span>' : "") + '</div>' +
           '<div class="wq-meta">' +
-            (t.projectId ? '<span class="chip chip-plain">' + U.esc(projectById(state, t.projectId) || {}).name + '</span>' : "") +
+            (proj && proj.name ? '<span class="chip chip-plain">' + U.esc(proj.name) + '</span>' : "") +
             '<span class="chip chip-plain">' + U.esc(t.owner || "Unassigned") + '</span>' +
             (t.dueDate ? '<span class="' + (overdue ? "overdue" : "") + '">due ' + U.esc(U.fmtDate(t.dueDate)) + (t.dueTime ? " " + U.esc(t.dueTime) : "") + '</span>' : '<span class="cell-muted">no due date</span>') +
             '<span class="chip ' + (t.status === "Completed" ? "chip-success" : t.status === "In progress" ? "chip-info" : t.status === "Waiting" ? "chip-warning" : "chip-plain") + '">' + U.esc(t.status) + '</span>' +
