@@ -153,8 +153,8 @@ async function main() {
 
   await waitFor(async () => {
     const d = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
-    return d.data && d.data.schemaVersion === 3;
-  }, 25000, "server data migrated to schema v3");
+    return d.data && d.data.schemaVersion === 4;
+  }, 25000, "server data migrated to schema v4");
   const apiNow = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());
   const st = apiNow.data;
   check("live investor dataset populated", st.investors.length > 0, st.investors.length);
@@ -164,7 +164,7 @@ async function main() {
   check("live contact dataset populated", baseContacts > 0, baseContacts);
   check("live task list seeded", st.tasks.length >= 4, st.tasks.length);
   const baseTasks = st.tasks.length;
-  check("data stored as schema v3", st.schemaVersion === 3, st.schemaVersion);
+  check("data stored as schema v4", st.schemaVersion === 4, st.schemaVersion);
   check("task templates seeded", Array.isArray(st.taskTemplates) && st.taskTemplates.length > 0,
     Array.isArray(st.taskTemplates) ? st.taskTemplates.length : "missing");
   check("activities array present for v3", Array.isArray(st.activities), typeof st.activities);
