@@ -3467,7 +3467,18 @@
     {
       "id": "mv48radjpwg9es",
       "archived": false,
-      "contacts": [],
+      "contacts": [
+        {
+          "id": "mv48sewtj0w71c",
+          "reviewFlags": [],
+          "name": "Jared Lo",
+          "title": "Director, Investments at Peterson",
+          "email": "jaredl@petersonbc.com",
+          "phone": "",
+          "notes": "",
+          "isPrimary": false
+        }
+      ],
       "name": "Peterson Group",
       "type": "Asset manager",
       "website": "https://petersonbc.com/",
