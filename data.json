@@ -5565,6 +5565,18 @@
           "archived": false,
           "legacy": null,
           "reviewFlags": []
+        },
+        {
+          "id": "mv48sl3litqaw1",
+          "investorId": "mv48radjpwg9es",
+          "stage": "not_contacted",
+          "priority": "",
+          "owner": "",
+          "contactIds": [],
+          "notes": "",
+          "archived": false,
+          "legacy": null,
+          "reviewFlags": []
         }
       ],
       "state": "active",
