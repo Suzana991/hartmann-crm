@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "fc6719be-44e7-4763-accb-aa59d3b8af0c",
+      "ts": "2026-10-11T19:54:04.490Z",
+      "user": "Suzana",
+      "summary": "1 added investor (Peterson Group)",
+      "investorId": "mv48radjpwg9es"
+    },
+    {
       "id": "24c6da49-9882-4d46-bf35-1a216045c90d",
       "ts": "2026-10-11T19:43:39.092Z",
       "user": "Suzana",
