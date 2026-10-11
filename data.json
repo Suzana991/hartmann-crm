@@ -2770,6 +2770,16 @@
           "notes": "",
           "isPrimary": true,
           "reviewFlags": []
+        },
+        {
+          "id": "mv48d4uvxv6zkb",
+          "reviewFlags": [],
+          "name": "Hashim Chawdhry",
+          "title": "Director of Capital Markets",
+          "email": "hchawdhry@icmgroup.ca",
+          "phone": "",
+          "notes": "",
+          "isPrimary": false
         }
       ]
     },
