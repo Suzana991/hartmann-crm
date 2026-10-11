@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const MAX_STATE_CHARS = 600000;
 const STAGES = new Set([
   "not_contacted", "awaiting_response", "in_discussion", "reviewing_materials",
@@ -113,6 +113,20 @@ export function validateState(data) {
       if (!tpl || typeof tpl !== "object" || typeof tpl.title !== "string" || !tpl.title) throw new PayloadError("invalid-state", 400, "task template needs a title");
       if (!DELIVERY_STAGES.has(tpl.stage)) throw new PayloadError("invalid-state", 400, "task template has unknown stage");
     }
+  }
+  if (!Array.isArray(data.notifications)) throw new PayloadError("invalid-state", 400, "notifications must be an array");
+  if (!Array.isArray(data.notificationPrefs)) throw new PayloadError("invalid-state", 400, "notificationPrefs must be an array");
+  for (const n of data.notifications) {
+    if (!n || typeof n !== "object" || typeof n.id !== "string") throw new PayloadError("invalid-state", 400, "notification missing id");
+    if (!n.type || !["task_assigned", "task_reassigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"].includes(n.type)) {
+      throw new PayloadError("invalid-state", 400, "notification has unknown type");
+    }
+    if (!["Suzana", "Bruno"].includes(n.recipient)) throw new PayloadError("invalid-state", 400, "notification recipient must be Suzana or Bruno");
+    if (typeof n.read !== "boolean") throw new PayloadError("invalid-state", 400, "notification read must be boolean");
+    if (typeof n.createdAt !== "string") throw new PayloadError("invalid-state", 400, "notification createdAt must be string");
+  }
+  for (const p of data.notificationPrefs) {
+    if (!p || typeof p !== "object" || !["Suzana", "Bruno"].includes(p.user)) throw new PayloadError("invalid-state", 400, "notificationPrefs user must be Suzana or Bruno");
   }
   if (data.activeProjectId && !projectIds.has(data.activeProjectId)) throw new PayloadError("invalid-state", 400, "activeProjectId references unknown project");
   return true;

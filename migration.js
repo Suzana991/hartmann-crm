@@ -4,23 +4,28 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  var SCHEMA_VERSION = 3;
-  var MAX_STATE_CHARS = 600000;
-  var VALID_STAGES = [
-    "not_contacted", "awaiting_response", "in_discussion", "reviewing_materials",
-    "due_diligence", "committed", "funded", "declined", "on_hold"
-  ];
-  var DELIVERY_STAGES = [
-    "onboarding", "engagement_agreement", "due_diligence", "materials_preparation",
-    "investor_outreach", "negotiation_structuring", "closing", "post_closing"
-  ];
-  var PROJECT_STATES = ["active", "on_hold", "archived"];
-  var AGREEMENT_STATUSES = ["not_started", "drafting", "sent", "signed", "declined"];
-  var ACTIVITY_KINDS = ["outreach", "reply", "materials", "note", "appointment"];
-  var OUTREACH_TYPES = ["Email", "Call", "Meeting", "Message", "Other outreach"];
-  var TASK_KINDS = ["task", "appointment"];
-  var TASK_STATUS_MAP = { "Pending": "To do", "Ongoing": "In progress", "Completed": "Completed" };
-  var KNOWN_TASK_STATUSES = ["To do", "In progress", "Waiting", "Completed"];
+var SCHEMA_VERSION = 4;
+var MAX_STATE_CHARS = 600000;
+var VALID_STAGES = [
+  "not_contacted", "awaiting_response", "in_discussion", "reviewing_materials",
+  "due_diligence", "committed", "funded", "declined", "on_hold"
+];
+var DELIVERY_STAGES = [
+  "onboarding", "engagement_agreement", "due_diligence", "materials_preparation",
+  "investor_outreach", "negotiation_structuring", "closing", "post_closing"
+];
+var PROJECT_STATES = ["active", "on_hold", "archived"];
+var AGREEMENT_STATUSES = ["not_started", "drafting", "sent", "signed", "declined"];
+var ACTIVITY_KINDS = ["outreach", "reply", "materials", "note", "appointment"];
+var OUTREACH_TYPES = ["Email", "Call", "Meeting", "Message", "Other outreach"];
+var TASK_KINDS = ["task", "appointment"];
+var TASK_STATUS_MAP = { "Pending": "To do", "Ongoing": "In progress", "Completed": "Completed" };
+var KNOWN_TASK_STATUSES = ["To do", "In progress", "Waiting", "Completed"];
+var NOTIFICATION_TYPES = [
+  "task_assigned", "task_reassigned", "mention", "comment", "deadline_change", "status_change",
+  "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"
+];
+var TIMEZONE = "Europe/Budapest";
 
   function defaultAgreement() {
     return { status: "not_started", sentDate: "", sentBy: "", signedDate: "", docLink: "", notes: "", history: [] };
@@ -489,6 +494,15 @@
       if (typeof t.waitingReason !== "string") t.waitingReason = "";
       if (TASK_KINDS.indexOf(t.kind) === -1) t.kind = "task";
       if (typeof t.templateKey !== "string") t.templateKey = "";
+      if (typeof t.description !== "string") t.description = "";
+      if (typeof t.collaborator !== "string") t.collaborator = "";
+      if (!Array.isArray(t.checklist)) t.checklist = [];
+      if (!Array.isArray(t.comments)) t.comments = [];
+      if (!Array.isArray(t.history)) t.history = [];
+      if (typeof t.nextFollowUp !== "string") t.nextFollowUp = "";
+      if (typeof t.reminder !== "string") t.reminder = "";
+      if (typeof t.recurring !== "object" || t.recurring === null) t.recurring = null;
+      if (typeof t.dependencies !== "object" || t.dependencies === null) t.dependencies = [];
     });
     if (!Array.isArray(state.taskTemplates)) state.taskTemplates = defaultTaskTemplates();
     state.schemaVersion = 3;
@@ -498,7 +512,7 @@
   function validateV3(state) {
     function fail(msg) { throw makeError("invalid-data", "Invalid CRM data: " + msg); }
     if (!state || typeof state !== "object" || Array.isArray(state)) fail("root must be an object");
-    if (state.schemaVersion !== SCHEMA_VERSION) fail("schemaVersion must be " + SCHEMA_VERSION);
+    if (state.schemaVersion !== 3) fail("schemaVersion must be 3");
     ["investors", "projects", "activities", "tasks"].forEach(function (k) {
       if (!Array.isArray(state[k])) fail(k + " must be an array");
     });
@@ -578,6 +592,15 @@
       if (KNOWN_TASK_STATUSES.indexOf(t.status) === -1) fail("task '" + t.id + "' has unknown status '" + t.status + "'");
       if (t.stage !== undefined && t.stage !== "" && DELIVERY_STAGES.indexOf(t.stage) === -1) fail("task '" + t.id + "' has unknown delivery stage '" + t.stage + "'");
       if (t.kind !== undefined && TASK_KINDS.indexOf(t.kind) === -1) fail("task '" + t.id + "' has unknown kind '" + t.kind + "'");
+      if (typeof t.description !== "string") t.description = "";
+      if (typeof t.collaborator !== "string") t.collaborator = "";
+      if (!Array.isArray(t.checklist)) t.checklist = [];
+      if (!Array.isArray(t.comments)) t.comments = [];
+      if (!Array.isArray(t.history)) t.history = [];
+      if (typeof t.nextFollowUp !== "string") t.nextFollowUp = "";
+      if (typeof t.reminder !== "string") t.reminder = "";
+      if (typeof t.recurring !== "object" || t.recurring === null) t.recurring = null;
+      if (typeof t.dependencies !== "object" || t.dependencies === null) t.dependencies = [];
     });
 
     if (state.taskTemplates) {
@@ -585,6 +608,186 @@
         if (!tpl || typeof tpl !== "object") fail("task template entry is not an object");
         if (typeof tpl.title !== "string" || !tpl.title) fail("task template needs a title");
         if (DELIVERY_STAGES.indexOf(tpl.stage) === -1) fail("task template has unknown stage '" + tpl.stage + "'");
+      });
+    }
+
+    if (state.activeProjectId && !projectIds.has(state.activeProjectId)) fail("activeProjectId references unknown project '" + state.activeProjectId + "'");
+    return true;
+  }
+
+  function upgradeToV4(state) {
+    state.projects.forEach(function (p) {
+      if (PROJECT_STATES.indexOf(p.state) === -1) p.state = p.archived ? "archived" : "active";
+      if (p.state === "archived") p.archived = true;
+      if (DELIVERY_STAGES.indexOf(p.deliveryStage) === -1) p.deliveryStage = null;
+      if (typeof p.lead !== "string") p.lead = "";
+      if (!Array.isArray(p.milestones)) p.milestones = [];
+      p.milestones = p.milestones.filter(function (m) { return m && typeof m === "object"; }).map(function (m) {
+        return { id: str(m.id) || defaultId(), label: str(m.label), date: str(m.date) };
+      });
+      if (!p.stageNotes || typeof p.stageNotes !== "object" || Array.isArray(p.stageNotes)) p.stageNotes = {};
+      if (!Array.isArray(p.stageHistory)) p.stageHistory = [];
+      var ag = (p.agreement && typeof p.agreement === "object") ? p.agreement : {};
+      var upgraded = defaultAgreement();
+      if (AGREEMENT_STATUSES.indexOf(ag.status) !== -1) upgraded.status = ag.status;
+      upgraded.sentDate = str(ag.sentDate);
+      upgraded.sentBy = str(ag.sentBy);
+      upgraded.signedDate = str(ag.signedDate);
+      upgraded.docLink = str(ag.docLink);
+      upgraded.notes = str(ag.notes);
+      upgraded.history = Array.isArray(ag.history) ? ag.history : [];
+      p.agreement = upgraded;
+    });
+    state.activities.forEach(function (a) {
+      if (ACTIVITY_KINDS.indexOf(a.kind) === -1) a.kind = activityKindFromType(a.type);
+      if (typeof a.outreachType !== "string") a.outreachType = "";
+      if (a.kind === "outreach" && !a.outreachType && OUTREACH_TYPES.indexOf(str(a.type)) !== -1) a.outreachType = str(a.type);
+    });
+    state.tasks.forEach(function (t) {
+      if (DELIVERY_STAGES.indexOf(t.stage) === -1) t.stage = "";
+      if (typeof t.waitingReason !== "string") t.waitingReason = "";
+      if (TASK_KINDS.indexOf(t.kind) === -1) t.kind = "task";
+      if (typeof t.templateKey !== "string") t.templateKey = "";
+      if (typeof t.description !== "string") t.description = "";
+      if (typeof t.collaborator !== "string") t.collaborator = "";
+      if (!Array.isArray(t.checklist)) t.checklist = [];
+      if (!Array.isArray(t.comments)) t.comments = [];
+      if (!Array.isArray(t.history)) t.history = [];
+      if (typeof t.nextFollowUp !== "string") t.nextFollowUp = "";
+      if (typeof t.reminder !== "string") t.reminder = "";
+      if (typeof t.recurring !== "object" || t.recurring === null) t.recurring = null;
+      if (typeof t.dependencies !== "object" || t.dependencies === null) t.dependencies = [];
+    });
+    if (!Array.isArray(state.taskTemplates)) state.taskTemplates = defaultTaskTemplates();
+    if (!Array.isArray(state.notifications)) state.notifications = [];
+    if (!Array.isArray(state.notificationPrefs)) state.notificationPrefs = [];
+    state.schemaVersion = 4;
+    return state;
+  }
+
+  function validateV4(state) {
+    function fail(msg) { throw makeError("invalid-data", "Invalid CRM data: " + msg); }
+    if (!state || typeof state !== "object" || Array.isArray(state)) fail("root must be an object");
+    if (state.schemaVersion !== SCHEMA_VERSION) fail("schemaVersion must be " + SCHEMA_VERSION);
+    ["investors", "projects", "activities", "tasks", "notifications", "notificationPrefs"].forEach(function (k) {
+      if (!Array.isArray(state[k])) fail(k + " must be an array");
+    });
+    if (state.taskTemplates !== undefined && !Array.isArray(state.taskTemplates)) fail("taskTemplates must be an array");
+    var size = JSON.stringify(state).length;
+    if (size > MAX_STATE_CHARS) fail("payload too large (" + size + " chars, limit " + MAX_STATE_CHARS + ")");
+
+    var investorIds = new Set();
+    var contactIds = new Set();
+    state.investors.forEach(function (inv) {
+      if (!inv || typeof inv !== "object") fail("investor entry is not an object");
+      if (!inv.id || typeof inv.id !== "string") fail("investor missing string id");
+      if (investorIds.has(inv.id)) fail("duplicate investor id '" + inv.id + "'");
+      investorIds.add(inv.id);
+      if (typeof inv.name !== "string") fail("investor '" + inv.id + "' name must be a string");
+      if (!Array.isArray(inv.contacts)) fail("investor '" + inv.id + "' contacts must be an array");
+      inv.contacts.forEach(function (c) {
+        if (!c || typeof c !== "object") fail("contact entry is not an object");
+        if (!c.id || typeof c.id !== "string") fail("contact missing string id");
+        if (contactIds.has(c.id)) fail("duplicate contact id '" + c.id + "'");
+        contactIds.add(c.id);
+        if (typeof c.name !== "string" || typeof c.email !== "string") fail("contact '" + c.id + "' name/email must be strings");
+      });
+    });
+
+    var engagementIds = new Set();
+    var projectIds = new Set();
+    state.projects.forEach(function (p) {
+      if (!p || typeof p !== "object") fail("project entry is not an object");
+      if (!p.id || typeof p.id !== "string") fail("project missing string id");
+      if (projectIds.has(p.id)) fail("duplicate project id '" + p.id + "'");
+      projectIds.add(p.id);
+      if (typeof p.name !== "string") fail("project '" + p.id + "' name must be a string");
+      if (PROJECT_STATES.indexOf(p.state) === -1) fail("project '" + p.id + "' has unknown state '" + p.state + "'");
+      if (p.deliveryStage !== null && DELIVERY_STAGES.indexOf(p.deliveryStage) === -1) fail("project '" + p.id + "' has unknown delivery stage '" + p.deliveryStage + "'");
+      if (typeof p.lead !== "string" || ["", "Suzana", "Bruno"].indexOf(p.lead) === -1) fail("project '" + p.id + "' lead must be '', 'Suzana' or 'Bruno'");
+      if (!Array.isArray(p.milestones)) fail("project '" + p.id + "' milestones must be an array");
+      if (!p.stageNotes || typeof p.stageNotes !== "object") fail("project '" + p.id + "' stageNotes must be an object");
+      if (!Array.isArray(p.stageHistory)) fail("project '" + p.id + "' stageHistory must be an array");
+      if (!p.agreement || typeof p.agreement !== "object") fail("project '" + p.id + "' agreement must be an object");
+      if (AGREEMENT_STATUSES.indexOf(p.agreement.status) === -1) fail("project '" + p.id + "' agreement has unknown status '" + p.agreement.status + "'");
+      if (!Array.isArray(p.engagements)) fail("project '" + p.id + "' engagements must be an array");
+      p.engagements.forEach(function (e) {
+        if (!e || typeof e !== "object") fail("engagement entry is not an object");
+        if (!e.id || typeof e.id !== "string") fail("engagement missing string id");
+        if (engagementIds.has(e.id)) fail("duplicate engagement id '" + e.id + "'");
+        engagementIds.add(e.id);
+        if (!investorIds.has(e.investorId)) fail("engagement '" + e.id + "' references unknown investor '" + e.investorId + "'");
+        if (VALID_STAGES.indexOf(e.stage) === -1) fail("engagement '" + e.id + "' has unknown stage '" + e.stage + "'");
+        if (!Array.isArray(e.contactIds)) fail("engagement '" + e.id + "' contactIds must be an array");
+        e.contactIds.forEach(function (cid) {
+          if (!contactIds.has(cid)) fail("engagement '" + e.id + "' references unknown contact '" + cid + "'");
+        });
+      });
+    });
+
+    state.activities.forEach(function (a) {
+      if (!a || typeof a !== "object") fail("activity entry is not an object");
+      if (!a.id || typeof a.id !== "string") fail("activity missing string id");
+      if (!engagementIds.has(a.engagementId)) fail("activity '" + a.id + "' references unknown engagement '" + a.engagementId + "'");
+      if (a.contactId !== null && a.contactId !== undefined && !contactIds.has(a.contactId)) fail("activity '" + a.id + "' references unknown contact '" + a.contactId + "'");
+      if (!(a.date === null || typeof a.date === "string")) fail("activity '" + a.id + "' date must be string or null");
+      if (ACTIVITY_KINDS.indexOf(a.kind) === -1) fail("activity '" + a.id + "' has unknown kind '" + a.kind + "'");
+      if (a.kind === "outreach" && a.outreachType && OUTREACH_TYPES.indexOf(a.outreachType) === -1) fail("activity '" + a.id + "' has unknown outreach type '" + a.outreachType + "'");
+    });
+
+    var taskIds = new Set();
+    state.tasks.forEach(function (t) {
+      if (!t || typeof t !== "object") fail("task entry is not an object");
+      if (!t.id || typeof t.id !== "string") fail("task missing string id");
+      if (taskIds.has(t.id)) fail("duplicate task id '" + t.id + "'");
+      taskIds.add(t.id);
+      if (typeof t.title !== "string") fail("task '" + t.id + "' title must be a string");
+      if (t.projectId && !projectIds.has(t.projectId)) fail("task '" + t.id + "' references unknown project '" + t.projectId + "'");
+      if (t.engagementId && !engagementIds.has(t.engagementId)) fail("task '" + t.id + "' references unknown engagement '" + t.engagementId + "'");
+      if (t.contactId && !contactIds.has(t.contactId)) fail("task '" + t.id + "' references unknown contact '" + t.contactId + "'");
+      if (KNOWN_TASK_STATUSES.indexOf(t.status) === -1) fail("task '" + t.id + "' has unknown status '" + t.status + "'");
+      if (t.stage !== undefined && t.stage !== "" && DELIVERY_STAGES.indexOf(t.stage) === -1) fail("task '" + t.id + "' has unknown delivery stage '" + t.stage + "'");
+      if (t.kind !== undefined && TASK_KINDS.indexOf(t.kind) === -1) fail("task '" + t.id + "' has unknown kind '" + t.kind + "'");
+      if (typeof t.description !== "string") fail("task '" + t.id + "' description must be a string");
+      if (typeof t.collaborator !== "string") fail("task '" + t.id + "' collaborator must be a string");
+      if (!Array.isArray(t.checklist)) fail("task '" + t.id + "' checklist must be an array");
+      if (!Array.isArray(t.comments)) fail("task '" + t.id + "' comments must be an array");
+      if (!Array.isArray(t.history)) fail("task '" + t.id + "' history must be an array");
+      if (typeof t.nextFollowUp !== "string") fail("task '" + t.id + "' nextFollowUp must be a string");
+      if (typeof t.reminder !== "string") fail("task '" + t.id + "' reminder must be a string");
+      if (t.recurring !== null && (typeof t.recurring !== "object" || !t.recurring.type)) fail("task '" + t.id + "' recurring must be an object with type or null");
+      if (!Array.isArray(t.dependencies)) fail("task '" + t.id + "' dependencies must be an array");
+    });
+
+    if (state.taskTemplates) {
+      state.taskTemplates.forEach(function (tpl) {
+        if (!tpl || typeof tpl !== "object") fail("task template entry is not an object");
+        if (typeof tpl.title !== "string" || !tpl.title) fail("task template needs a title");
+        if (DELIVERY_STAGES.indexOf(tpl.stage) === -1) fail("task template has unknown stage '" + tpl.stage + "'");
+      });
+    }
+
+    if (state.notifications) {
+      state.notifications.forEach(function (n) {
+        if (!n || typeof n !== "object") fail("notification entry is not an object");
+        if (!n.id || typeof n.id !== "string") fail("notification missing string id");
+        if (!n.type || NOTIFICATION_TYPES.indexOf(n.type) === -1) fail("notification has unknown type '" + n.type + "'");
+        if (!n.recipient || ["Suzana", "Bruno"].indexOf(n.recipient) === -1) fail("notification recipient must be Suzana or Bruno");
+        if (typeof n.read !== "boolean") fail("notification read must be boolean");
+        if (typeof n.createdAt !== "string") fail("notification createdAt must be a string");
+      });
+    }
+
+    if (state.notificationPrefs) {
+      state.notificationPrefs.forEach(function (p) {
+        if (!p || typeof p !== "object") fail("notificationPrefs entry is not an object");
+        if (!p.user || ["Suzana", "Bruno"].indexOf(p.user) === -1) fail("notificationPrefs user must be Suzana or Bruno");
+        if (!Array.isArray(p.followedProjects)) p.followedProjects = [];
+        if (!Array.isArray(p.followedTasks)) p.followedTasks = [];
+        if (typeof p.reminderTiming !== "string") p.reminderTiming = "15min";
+        if (!Array.isArray(p.toastEvents)) p.toastEvents = ["task_assigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"];
+        if (typeof p.sound !== "boolean") p.sound = false;
+        if (typeof p.quietHours !== "object" || p.quietHours === null) p.quietHours = { start: "22:00", end: "08:00" };
       });
     }
 
@@ -603,18 +806,28 @@
         "This build supports up to v" + SCHEMA_VERSION + ". Update the application before opening this data.");
     }
     if (version === SCHEMA_VERSION) {
-      validateV3(payload);
+      validateV4(payload);
       return { state: payload, report: payload.migrationReport || null, alreadyMigrated: true, fromVersion: SCHEMA_VERSION };
+    }
+    if (version === 3) {
+      validateV3(payload);
+      var upgraded = upgradeToV4(payload);
+      validateV4(upgraded);
+      return { state: upgraded, report: upgraded.migrationReport || null, alreadyMigrated: false, fromVersion: 3 };
     }
     if (version === 2) {
       validateV2(payload);
       var upgraded = upgradeToV3(payload);
       validateV3(upgraded);
-      return { state: upgraded, report: upgraded.migrationReport || null, alreadyMigrated: false, fromVersion: 2 };
+      var upgradedV4 = upgradeToV4(upgraded);
+      validateV4(upgradedV4);
+      return { state: upgradedV4, report: upgradedV4.migrationReport || null, alreadyMigrated: false, fromVersion: 2 };
     }
     var result = migrateLegacy(payload, idFactory, now);
     upgradeToV3(result.state);
     validateV3(result.state);
+    upgradeToV4(result.state);
+    validateV4(result.state);
     return { state: result.state, report: result.report, alreadyMigrated: false, fromVersion: 1 };
   }
 
@@ -634,8 +847,10 @@
     defaultAgreement: defaultAgreement,
     defaultTaskTemplates: defaultTaskTemplates,
     upgradeToV3: upgradeToV3,
+    upgradeToV4: upgradeToV4,
     validateV2: validateV2,
     validateV3: validateV3,
+    validateV4: validateV4,
     migrate: migrate
   };
 });

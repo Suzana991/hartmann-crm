@@ -25,6 +25,7 @@ test("detectVersion classifies payload shapes", () => {
   assert.strictEqual(M.detectVersion({ projects: [] }), 1);
   assert.strictEqual(M.detectVersion({ schemaVersion: 2, investors: [] }), 2);
   assert.strictEqual(M.detectVersion({ schemaVersion: 3, investors: [] }), 3);
+  assert.strictEqual(M.detectVersion({ schemaVersion: 4, investors: [] }), 4);
   assert.throws(() => M.detectVersion(null), (e) => e.code === "unrecognized-data");
   assert.throws(() => M.detectVersion({ foo: 1 }), (e) => e.code === "unrecognized-data");
   assert.throws(() => M.detectVersion([1]), (e) => e.code === "unrecognized-data");
@@ -32,8 +33,8 @@ test("detectVersion classifies payload shapes", () => {
 
 test("migrate rejects unsupported future schema version clearly", () => {
   assert.throws(
-    () => M.migrate({ schemaVersion: 4, investors: [] }),
-    (e) => e.code === "unsupported-version" && /schema v4/.test(e.message) && /supports up to v3/.test(e.message)
+    () => M.migrate({ schemaVersion: 5, investors: [] }),
+    (e) => e.code === "unsupported-version" && /schema v5/.test(e.message) && /supports up to v4/.test(e.message)
   );
   assert.throws(
     () => M.migrate({ schemaVersion: 99 }),
@@ -55,7 +56,7 @@ test("real data: source counts fully accounted for", () => {
   assert.strictEqual(report.sourceCounts.contacts, 183);
   assert.strictEqual(report.sourceCounts.tasks, 1);
   assert.strictEqual(report.mapping.length, 73);
-  assert.strictEqual(state.schemaVersion, 3);
+  assert.strictEqual(state.schemaVersion, 4);
   assert.strictEqual(state.projects.length, 2);
   assert.strictEqual(state.projects.reduce((n, p) => n + p.engagements.length, 0), 73);
   assert.strictEqual(state.investors.length, 73);
@@ -385,7 +386,11 @@ test("synthetic: possible duplicate valid emails are flagged but not merged", ()
 });
 
 test("validateV3 rejects structural corruption", () => {
-  const base = () => JSON.parse(JSON.stringify(migrateFixture().state));
+  const base = () => {
+    const s = JSON.parse(JSON.stringify(migrateFixture().state));
+    s.schemaVersion = 3;
+    return s;
+  };
   assert.strictEqual(M.validateV3(base()), true);
   assert.throws(() => M.validateV3(null), (e) => e.code === "invalid-data");
   const noArr = base(); delete noArr.tasks;
@@ -410,9 +415,15 @@ test("validateV3 rejects wrong schemaVersion", () => {
   assert.throws(() => M.validateV3(s), (e) => /schemaVersion must be 3/.test(e.message));
 });
 
-test("v2 state upgrades to v3 preserving every record", () => {
-  const v3 = migrateFixture().state;
-  const v2 = JSON.parse(JSON.stringify(v3));
+test("validateV4 rejects wrong schemaVersion", () => {
+  const s = JSON.parse(JSON.stringify(migrateFixture().state));
+  s.schemaVersion = 3;
+  assert.throws(() => M.validateV4(s), (e) => /schemaVersion must be 4/.test(e.message));
+});
+
+test("v2 state upgrades to v4 preserving every record", () => {
+  const v4 = migrateFixture().state;
+  const v2 = JSON.parse(JSON.stringify(v4));
   delete v2.taskTemplates;
   v2.schemaVersion = 2;
   v2.projects.forEach((p) => {
@@ -420,11 +431,11 @@ test("v2 state upgrades to v3 preserving every record", () => {
     delete p.milestones; delete p.stageNotes; delete p.stageHistory; delete p.agreement;
   });
   v2.activities.forEach((a) => { delete a.kind; delete a.outreachType; });
-  v2.tasks.forEach((t) => { delete t.stage; delete t.waitingReason; delete t.kind; delete t.templateKey; });
+  v2.tasks.forEach((t) => { delete t.stage; delete t.waitingReason; delete t.kind; delete t.templateKey; delete t.description; delete t.collaborator; delete t.checklist; delete t.comments; delete t.history; delete t.nextFollowUp; delete t.reminder; delete t.recurring; delete t.dependencies; });
   const out = M.migrate(v2);
   assert.strictEqual(out.alreadyMigrated, false);
   assert.strictEqual(out.fromVersion, 2);
-  assert.strictEqual(out.state.schemaVersion, 3);
+  assert.strictEqual(out.state.schemaVersion, 4);
   assert.strictEqual(out.state.investors.length, 73);
   assert.strictEqual(out.state.tasks.length, 2);
   assert.strictEqual(out.state.activities.length, 1);
@@ -439,12 +450,18 @@ test("v2 state upgrades to v3 preserving every record", () => {
   assert.strictEqual(out.state.activities[0].kind, "outreach", "legacy outreach classified");
   assert.strictEqual(out.state.activities[0].outreachType, "", "outreach type not invented");
   assert.strictEqual(out.state.taskTemplates.length > 0, true, "template defaults seeded");
+  assert.strictEqual(out.state.notifications.length, 0, "notifications seeded empty");
+  assert.strictEqual(out.state.notificationPrefs.length, 0, "notificationPrefs seeded empty");
   const again = M.migrate(JSON.parse(JSON.stringify(out.state)));
-  assert.strictEqual(again.alreadyMigrated, true, "v3 reload is a no-op");
+  assert.strictEqual(again.alreadyMigrated, true, "v4 reload is a no-op");
 });
 
 test("v3 validation rejects unknown delivery stage, agreement status and task kind", () => {
-  const base = () => JSON.parse(JSON.stringify(migrateFixture().state));
+  const base = () => {
+    const s = JSON.parse(JSON.stringify(migrateFixture().state));
+    s.schemaVersion = 3;
+    return s;
+  };
   const badDelivery = base(); badDelivery.projects[0].deliveryStage = "magic";
   assert.throws(() => M.validateV3(badDelivery), (e) => /unknown delivery stage/.test(e.message));
   const badAgreement = base(); badAgreement.projects[0].agreement.status = "maybe";

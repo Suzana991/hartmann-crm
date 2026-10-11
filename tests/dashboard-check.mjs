@@ -107,7 +107,7 @@ async function main() {
   watch(page);
   page.on("dialog", (d) => d.accept().catch(() => {}));
 
-  console.log("--- load + schema v3 ---");
+  console.log("--- load + schema v4 ---");
   await login(page, TOKEN);
   await waitReady(page);
 
@@ -115,7 +115,7 @@ async function main() {
     const res = await fetch(opts.url + "/api/data", { headers: { Authorization: "Bearer " + opts.token } });
     return res.json();
   }, { url: BASE, token: TOKEN });
-  check("stored data is schemaVersion 3", remote.data && remote.data.schemaVersion === 3, remote.data && remote.data.schemaVersion);
+  check("stored data is schemaVersion 4", remote.data && remote.data.schemaVersion === 4, remote.data && remote.data.schemaVersion);
   const proj = remote.data.projects[0];
   check("project carries agreement object", proj.agreement && typeof proj.agreement.status === "string", JSON.stringify(proj.agreement && proj.agreement.status));
   check("project carries stage history array", Array.isArray(proj.stageHistory));
