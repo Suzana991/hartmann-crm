@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "f5dc5806-335a-43cd-b422-795f8168df48",
+      "ts": "2026-10-11T19:57:06.412Z",
+      "user": "Suzana",
+      "summary": "1 updated investor (LaSalle (Canada Property Fund))",
+      "investorId": "mv1jmuq9vmbmwe"
+    },
+    {
       "id": "9f71e0b4-7903-4c5a-af1a-5a3ef3c0acf3",
       "ts": "2026-10-11T19:56:04.162Z",
       "user": "Suzana",
