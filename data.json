@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "investors": [
     {
       "id": "muyt073t551gyl",
@@ -5571,7 +5571,16 @@
       "stage": "",
       "waitingReason": "",
       "kind": "task",
-      "templateKey": ""
+      "templateKey": "",
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv13uih9vbtd8v",
@@ -5590,7 +5599,16 @@
       "templateKey": "onboarding:collect project information",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv13uih9qoihl9",
@@ -5609,7 +5627,16 @@
       "templateKey": "onboarding:confirm funding request",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv13uih9f97q49",
@@ -5628,7 +5655,16 @@
       "templateKey": "onboarding:identify missing information",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv2zpbk89jpb8n",
@@ -5647,7 +5683,16 @@
       "templateKey": "due_diligence:collect documents",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv2zpbk8418imu",
@@ -5666,7 +5711,16 @@
       "templateKey": "due_diligence:review financial model",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv2zpbk8lx50c6",
@@ -5685,7 +5739,16 @@
       "templateKey": "due_diligence:resolve open questions",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv2zq4eiy0uukc",
@@ -5704,7 +5767,16 @@
       "templateKey": "materials_preparation:prepare investment presentation",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     },
     {
       "id": "mv2zq4eiyn229j",
@@ -5723,7 +5795,16 @@
       "templateKey": "materials_preparation:review data room",
       "legacy": false,
       "source": "template",
-      "reviewFlags": []
+      "reviewFlags": [],
+      "description": "",
+      "collaborator": "",
+      "checklist": [],
+      "comments": [],
+      "history": [],
+      "nextFollowUp": "",
+      "reminder": "",
+      "recurring": null,
+      "dependencies": []
     }
   ],
   "activeProjectId": "muysm8sbcsf8rj",
@@ -10696,5 +10777,7 @@
       "title": "Confirm completion",
       "enabled": true
     }
-  ]
+  ],
+  "notifications": [],
+  "notificationPrefs": []
 }
