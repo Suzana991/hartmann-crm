@@ -115,12 +115,16 @@ window.Store = (function () {
   function markDirty() {
     dirty = true;
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(function () { flush(); }, 600);
+    debounceTimer = setTimeout(function () {
+      debounceTimer = null;
+      flush();
+    }, 600);
   }
 
   function scheduleRetry() {
     clearTimeout(retryTimer);
     retryTimer = setTimeout(function () {
+      retryTimer = null;
       if (dirty) flush();
     }, 15000);
   }
@@ -131,15 +135,22 @@ window.Store = (function () {
     dirty = false;
     inFlight = true;
     clearTimeout(debounceTimer);
+    debounceTimer = null;
+    clearTimeout(retryTimer);
+    retryTimer = null;
     emitStatus("saving", "Saving…");
+    let sentState = null;
     try {
-      const state = ctx.getState();
-      const result = await request("PUT", "/api/data", { data: state, baseSha: sha });
+      sentState = JSON.parse(JSON.stringify(ctx.getState()));
+      const result = await request("PUT", "/api/data", { data: sentState, baseSha: sha });
       sha = result.sha;
       emitStatus("saved", "Saved " + new Date().toLocaleTimeString());
-      if (ctx && ctx.onSaved) ctx.onSaved();
+      if (ctx && ctx.onSaved) ctx.onSaved(sentState);
       if (dirty) {
-        debounceTimer = setTimeout(function () { flush(); }, 300);
+        debounceTimer = setTimeout(function () {
+          debounceTimer = null;
+          flush();
+        }, 300);
       }
     } catch (e) {
       if (e.code === "unauthorized") {

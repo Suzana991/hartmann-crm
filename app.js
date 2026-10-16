@@ -2,6 +2,7 @@ window.App = (function () {
   "use strict";
 
   let state = null;
+  let baseState = null;
   const SEEN_KEY = "hartmann-crm-change-seen";
   const changes = { items: [], dataSha: null, loaded: false, error: false, notifInit: false, lastNotified: "" };
   const sync = { timer: null, syncing: false, backoff: 0, pending: false, error: false };
@@ -70,6 +71,14 @@ window.App = (function () {
         { user: "Bruno", followedProjects: [], followedTasks: [], reminderTiming: "15min", toastEvents: ["task_assigned", "mention", "comment", "deadline_change", "status_change", "reminder_due", "overdue", "dependency_completed", "project_change", "agreement_followup"], sound: false, quietHours: { start: "22:00", end: "08:00" } }
       ]
     };
+  }
+
+  function markBase() {
+    try {
+      baseState = state === null || state === undefined ? null : JSON.parse(JSON.stringify(state));
+    } catch (e) {
+      baseState = null;
+    }
   }
 
   function activeProject() {
@@ -421,6 +430,7 @@ window.App = (function () {
       const migrated = CRM_MIGRATION.migrate(result.data);
       state = migrated.state;
     }
+    markBase();
     if (state.projects.length && !state.projects.some(function (p) { return p.id === ui.projectId; })) {
       const firstOpen = state.projects.find(function (p) { return !p.archived; }) || state.projects[0];
       ui.projectId = firstOpen ? firstOpen.id : null;
@@ -781,15 +791,159 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
     el("fatal-backdrop").classList.add("hidden");
   }
 
-  function showConflict(payload) {
+  function cloneData(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function isPlainObject(v) {
+    return !!v && typeof v === "object" && !Array.isArray(v);
+  }
+
+  function deepEqual(a, b) {
+    if (a === b) return true;
+    if (a === undefined || b === undefined) return false;
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; }
+  }
+
+  function arrayKeyOf(list) {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    let hasId = true;
+    let hasUser = true;
+    for (const item of list) {
+      if (!item || typeof item !== "object" || typeof item.id !== "string") hasId = false;
+      if (!item || typeof item !== "object" || typeof item.user !== "string") hasUser = false;
+    }
+    if (hasId) return "id";
+    if (hasUser) return "user";
+    return null;
+  }
+
+  function indexBy(list, key) {
+    const map = {};
+    for (const item of list || []) {
+      if (item && typeof item === "object" && typeof item[key] === "string") map[item[key]] = item;
+    }
+    return map;
+  }
+
+  function mergeSet(base, mine, theirs) {
+    const canon = function (v) { return JSON.stringify(v); };
+    const out = [];
+    const seen = new Set();
+    const push = function (v) {
+      const c = canon(v);
+      if (seen.has(c)) return;
+      seen.add(c);
+      out.push(v);
+    };
+    for (const v of mine) push(v);
+    for (const v of theirs) push(v);
+    return out;
+  }
+
+  function mergeValue(base, mine, theirs, path, conflicts) {
+    if (deepEqual(mine, theirs)) return mine;
+    if (deepEqual(base, mine)) return theirs;
+    if (deepEqual(base, theirs)) return mine;
+    if (Array.isArray(mine) && Array.isArray(theirs)) {
+      return mergeArray(base, mine, theirs, path, conflicts);
+    }
+    if (isPlainObject(mine) && isPlainObject(theirs)) {
+      return mergeObject(base, mine, theirs, path, conflicts);
+    }
+    conflicts.push({ path: path, base: base, mine: mine, theirs: theirs });
+    return mine;
+  }
+
+  function mergeObject(base, mine, theirs, path, conflicts) {
+    const out = {};
+    const keys = {};
+    [base, mine, theirs].forEach(function (obj) {
+      if (isPlainObject(obj)) Object.keys(obj).forEach(function (k) { keys[k] = true; });
+    });
+    Object.keys(keys).forEach(function (k) {
+      const bv = isPlainObject(base) ? base[k] : undefined;
+      const mv = isPlainObject(mine) ? mine[k] : undefined;
+      const tv = isPlainObject(theirs) ? theirs[k] : undefined;
+      if (mv === undefined && tv === undefined) return;
+      out[k] = mergeValue(bv, mv, tv, path + "." + k, conflicts);
+    });
+    return out;
+  }
+
+  function mergeArray(base, mine, theirs, path, conflicts) {
+    const key = arrayKeyOf(mine) || arrayKeyOf(theirs) || arrayKeyOf(base);
+    if (!key) return mergeSet(base || [], mine, theirs);
+    const baseIdx = indexBy(base, key);
+    const mineIdx = indexBy(mine, key);
+    const theirsIdx = indexBy(theirs, key);
+    const out = [];
+    const seen = {};
+    const handle = function (id) {
+      if (seen[id]) return;
+      seen[id] = true;
+      const b = baseIdx[id];
+      const m = mineIdx[id];
+      const t = theirsIdx[id];
+      if (m !== undefined && t !== undefined) {
+        out.push(mergeValue(b, m, t, path + "[" + id + "]", conflicts));
+      } else if (m !== undefined) {
+        if (b === undefined) { out.push(m); return; }
+        if (deepEqual(m, b)) return;
+        conflicts.push({ path: path + "[" + id + "]", base: b, mine: m, theirs: null });
+        out.push(m);
+      } else if (t !== undefined) {
+        if (b === undefined) { out.push(t); return; }
+        if (deepEqual(t, b)) return;
+        conflicts.push({ path: path + "[" + id + "]", base: b, mine: null, theirs: t });
+        out.push(t);
+      }
+    };
+    (mineIdx ? mine : []).forEach(function (e) { if (e && typeof e[key] === "string") handle(e[key]); });
+    (theirs || []).forEach(function (e) { if (e && typeof e[key] === "string") handle(e[key]); });
+    (base || []).forEach(function (e) { if (e && typeof e[key] === "string") handle(e[key]); });
+    return out;
+  }
+
+  function mergeStates(base, mine, theirs) {
+    const conflicts = [];
+    const merged = mergeValue(base, mine, theirs, "$", conflicts);
+    if (base && mine && theirs && typeof merged === "object" && merged !== null) {
+      const versions = [base.schemaVersion, mine.schemaVersion, theirs.schemaVersion].filter(function (v) { return typeof v === "number"; });
+      if (versions.length) merged.schemaVersion = Math.max.apply(null, versions);
+    }
+    return { state: merged, conflicts: conflicts };
+  }
+
+  function describeConflict(c) {
+    return String(c.path || "").replace(/^\$\.?/, "").replace(/\[([^\]]+)\]/g, function (m, id) { return " (" + id + ")"; });
+  }
+
+  function applyMergedState(merged) {
+    state = merged;
+    if (state.projects && state.projects.length && !state.projects.some(function (p) { return p.id === ui.projectId; })) {
+      const firstOpen = state.projects.find(function (p) { return !p.archived; }) || state.projects[0];
+      ui.projectId = firstOpen ? firstOpen.id : null;
+    }
+  }
+
+  function showConflict(payload, mergeInfo) {
+    const overwriteBtn = el("conflict-overwrite");
     if (!payload || payload.data === null) {
       el("conflict-text").textContent = "The data file was removed on the server while you were editing. Saving your version will recreate it.";
       el("conflict-reload").classList.add("hidden");
+    } else if (mergeInfo && mergeInfo.conflicts && mergeInfo.conflicts.length) {
+      const n = mergeInfo.conflicts.length;
+      const list = mergeInfo.conflicts.slice(0, 3).map(describeConflict).join(", ");
+      el("conflict-text").textContent = "You and another user edited the same " + n + " field" + (n === 1 ? "" : "s") + " (" + list + (n > 3 ? ", …" : "") + "). Their other, non-overlapping changes can be kept automatically.";
+      el("conflict-reload").classList.remove("hidden");
     } else {
       const who = payload.data && payload.data.migrationReport ? "another user migrated or saved" : "another user saved changes";
       el("conflict-text").textContent = "A newer version exists on the server (" + who + "). Load their version and lose your unsaved edits, or save your version over theirs.";
       el("conflict-reload").classList.remove("hidden");
     }
+    overwriteBtn.textContent = (mergeInfo && mergeInfo.conflicts && mergeInfo.conflicts.length) ? "Keep mine, save merged" : "Save mine over theirs";
     el("conflict-backdrop").classList.remove("hidden");
   }
 
@@ -815,6 +969,7 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
       const result = await Store.load();
       if (result.data === null) {
         state = emptyState();
+        markBase();
         ui.projectId = null;
         setStatus("saved", "New dataset — nothing stored yet");
         render();
@@ -823,6 +978,7 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
       }
       const migrated = CRM_MIGRATION.migrate(result.data);
       state = migrated.state;
+      markBase();
       const firstProject = state.projects.find(function (p) { return !p.archived; });
       ui.projectId = state.activeProjectId || (firstProject ? firstProject.id : null);
       render();
@@ -1142,6 +1298,7 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
       if (!payload) return;
       if (payload.data === null) {
         state = emptyState();
+        markBase();
         Store.setSha(payload.sha);
         render();
         setStatus("saved", "Server copy was empty");
@@ -1150,6 +1307,7 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
       try {
         const migrated = CRM_MIGRATION.migrate(payload.data);
         state = migrated.state;
+        markBase();
         Store.setSha(payload.sha);
         render();
         setStatus("saved", "Loaded server version");
@@ -1160,9 +1318,18 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
     },
     "conflict-overwrite": function () {
       const payload = actions._conflictPayload;
+      const merged = actions._mergeResult;
       hideConflict();
       if (!payload) return;
       Store.setSha(payload.sha);
+      if (merged && merged.state) {
+        applyMergedState(merged.state);
+        render();
+        Store.markDirty();
+        Store.flushNow();
+        U.toast("Keeping your version of the overlapping fields; their other edits were merged in.", "info");
+        return;
+      }
       Store.markDirty();
       Store.flushNow();
       U.toast("Saving your version over the server copy.", "info");
@@ -1195,7 +1362,8 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
         U.toast("Reminder snoozed for 24 hours.");
       }
     },
-    "_conflictPayload": null
+    "_conflictPayload": null,
+    "_mergeResult": null
   };
 
   function commitInvestor(id, data) {
@@ -1912,16 +2080,20 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
 
   function wireEvents() {
     document.addEventListener("click", function (event) {
-      if (event.target.closest("[data-stop]")) return;
       const actionTarget = event.target.closest("[data-action]");
       if (actionTarget) {
-        const name = actionTarget.dataset.action;
-        if (actions[name] && name.charAt(0) !== "_") {
-          event.preventDefault();
-          actions[name](actionTarget.dataset, event);
-          return;
+        const stopEl = event.target.closest("[data-stop]");
+        const blockedByInnerStop = stopEl && stopEl !== actionTarget && actionTarget.contains(stopEl);
+        if (!blockedByInnerStop) {
+          const name = actionTarget.dataset.action;
+          if (actions[name] && name.charAt(0) !== "_") {
+            event.preventDefault();
+            actions[name](actionTarget.dataset, event);
+            return;
+          }
         }
       }
+      if (event.target.closest("[data-stop]")) return;
       const menu = el("menu");
       if (!menu.classList.contains("hidden") &&
         !event.target.closest("#menu") &&
@@ -2154,9 +2326,34 @@ const projectLink = n.projectId ? ' <button class="link-btn" data-action="open-p
       onUnauthorized: function () { setStatus("", "Access key rejected"); showAccess(); },
       onConflict: function (payload) {
         actions._conflictPayload = payload;
-        showConflict(payload);
+        actions._mergeResult = null;
+        if (payload && payload.data !== null && state && baseState) {
+          try {
+            const migrated = CRM_MIGRATION.migrate(payload.data);
+            const result = mergeStates(baseState, state, migrated.state);
+            actions._mergeResult = result;
+            if (result.conflicts.length === 0) {
+              applyMergedState(result.state);
+              Store.setSha(payload.sha);
+              render();
+              Store.markDirty();
+              Store.flushNow();
+              setStatus("saved", "Merged with other changes");
+              U.toast("Merged your edits with the other user's changes.", "success");
+              actions._conflictPayload = null;
+              actions._mergeResult = null;
+              return;
+            }
+          } catch (e) {
+            actions._mergeResult = null;
+          }
+        }
+        showConflict(payload, actions._mergeResult);
       },
-      onSaved: refreshChanges
+      onSaved: function (sentState) {
+        if (sentState) baseState = sentState;
+        refreshChanges();
+      },
     });
     wireEvents();
     window.addEventListener("beforeunload", function (event) {

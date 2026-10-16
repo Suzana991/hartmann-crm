@@ -272,7 +272,7 @@ async function main() {
   await waitSha(shaBeforeDeleteA, "task A delete");
   check("temp task deleted cleanly", true);
 
-  console.log("--- conflict handling (two sessions) ---");
+  console.log("--- concurrent edits: unrelated tasks merge automatically ---");
   await page.click('[data-nav="tasks"]');
   const ctxB = await browser.newContext({ viewport: { width: 1200, height: 800 } });
   const pageB = await ctxB.newPage();
@@ -298,25 +298,45 @@ async function main() {
   await page.waitForSelector("#modal-backdrop:not(.hidden)");
   await page.fill('#modal-body input[name="title"]', MARKER + " Task A-late");
   await page.click("#modal-submit");
+  await waitSaved(page);
+  const mergeDialog = await page.evaluate(() => !document.getElementById("conflict-backdrop").classList.contains("hidden"));
+  check("unrelated concurrent writes merge without a dialog", !mergeDialog);
+  await waitFor(async () => {
+    const t = await page.locator(".task-title").allTextContents();
+    return t.some((x) => x.indexOf(MARKER + " Task A-late") !== -1) && t.some((x) => x.indexOf(MARKER + " Task B-first") !== -1);
+  }, 20000, "both merged tasks visible");
+  check("both concurrent tasks preserved", true);
+
+  console.log("--- conflict handling: same field (two sessions) ---");
+  await waitFor(async () => {
+    const t = await pageB.locator(".task-title").allTextContents();
+    return t.some((x) => x.indexOf(MARKER + " Task A-late") !== -1);
+  }, 20000, "B sees merged tasks");
+  const sharedId = await page.evaluate((mk) => App.getState().tasks.find((t) => t.title === mk + " Task A-late").id, MARKER);
+  const shaBeforeBEdit = await curSha();
+  await pageB.evaluate((a) => App.commitTask(a.id, { title: a.title }), { id: sharedId, title: MARKER + " Task B-edit" });
+  await waitSha(shaBeforeBEdit, "B task edit");
+  await page.evaluate((a) => App.commitTask(a.id, { title: a.title }), { id: sharedId, title: MARKER + " Task A-edit" });
   await page.waitForSelector("#conflict-backdrop:not(.hidden)", { timeout: 15000 });
-  check("conflict dialog shown on stale save", true);
+  check("conflict dialog shown on same-field stale save", true);
   await page.click("#conflict-reload");
   await waitSaved(page);
   const tasksAfterConflict = await page.locator(".task-title").allTextContents();
-  check("their version loaded (B task present, A task discarded)",
-    tasksAfterConflict.some((t) => t.indexOf(MARKER + " Task B-first") !== -1) &&
-    !tasksAfterConflict.some((t) => t.indexOf(MARKER + " Task A-late") !== -1),
+  check("their version loaded (A edit discarded, B edit kept)",
+    tasksAfterConflict.some((t) => t.indexOf(MARKER + " Task B-edit") !== -1) &&
+    !tasksAfterConflict.some((t) => t.indexOf(MARKER + " Task A-edit") !== -1),
     tasksAfterConflict.join(";"));
 
-  const taskRowB = page.locator(".task-row").filter({ hasText: MARKER + " Task B-first" }).first();
-  const shaBeforeDeleteB = await curSha();
-  await taskRowB.locator('[data-action="delete-task"]').click();
-  page.once("dialog", (d) => d.accept().catch(() => {}));
-  await waitFor(async () => {
-    const t = await page.locator(".task-title").allTextContents();
-    return !t.some((x) => x.indexOf(MARKER) !== -1);
-  }, 8000, "all temp tasks removed");
-  await waitSha(shaBeforeDeleteB, "B task delete");
+  for (const frag of [MARKER + " Task B-first", MARKER + " Task B-edit"]) {
+    const shaBeforeDelete = await curSha();
+    await page.locator(".task-row").filter({ hasText: frag }).first().locator('[data-action="delete-task"]').click();
+    page.once("dialog", (d) => d.accept().catch(() => {}));
+    await waitFor(async () => {
+      const t = await page.locator(".task-title").allTextContents();
+      return !t.some((x) => x.indexOf(frag) !== -1);
+    }, 12000, "removed " + frag);
+    await waitSha(shaBeforeDelete, "delete " + frag);
+  }
 
   console.log("--- final cleanup verification ---");
   const finalData = await fetch(API_URL + "/api/data", { headers: { Authorization: "Bearer " + KEY } }).then((r) => r.json());

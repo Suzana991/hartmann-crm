@@ -261,8 +261,14 @@ async function main() {
   await shot(pageBad, "09-unauthorized");
   await ctxBad.close();
 
-  console.log("--- concurrent edit conflict ---");
+  console.log("--- concurrent edits: unrelated records merge automatically ---");
   await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent), null, { timeout: 10000 });
+  const serverInvestors = async () => (await page.evaluate(async (token) => {
+    const res = await fetch("http://127.0.0.1:8788/api/data", {
+      headers: { Authorization: "Bearer " + token }
+    });
+    return (await res.json()).data.investors;
+  }, TOKEN));
   const ctxB = await browser.newContext({ viewport: { width: 1200, height: 800 } });
   const pageB = await ctxB.newPage();
   watch(pageB);
@@ -274,32 +280,42 @@ async function main() {
   await pageB.waitForSelector("#modal-backdrop:not(.hidden)");
   await pageB.fill('#modal-body input[name="name"]', "Concurrent B Fund");
   await pageB.click("#modal-submit");
-  await pageB.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent),
-    null, { timeout: 10000 });
+  await waitFor(async () => (await serverInvestors()).some((i) => i.name === "Concurrent B Fund"), 15000, "B fund on server");
+  if (await pageB.isVisible("#detail-drawer")) await pageB.click("#detail-close");
 
   await page.click('[data-nav="directory"]');
   await page.click("#primary-action-btn");
   await page.waitForSelector("#modal-backdrop:not(.hidden)");
   await page.fill('#modal-body input[name="name"]', "Concurrent A Fund");
   await page.click("#modal-submit");
+  await waitFor(async () => {
+    const n = (await serverInvestors()).map((i) => i.name);
+    return n.indexOf("Concurrent A Fund") !== -1 && n.indexOf("Concurrent B Fund") !== -1;
+  }, 15000, "both concurrent records on server");
+  const mergeDialog = await page.evaluate(() => !document.getElementById("conflict-backdrop").classList.contains("hidden"));
+  check("unrelated concurrent writes merge without a dialog", !mergeDialog);
+  const mergedNames = (await serverInvestors()).map((i) => i.name);
+  check("both concurrent records preserved", mergedNames.indexOf("Concurrent A Fund") !== -1 && mergedNames.indexOf("Concurrent B Fund") !== -1, mergedNames.join(","));
+
+  console.log("--- concurrent edits: same field conflicts ---");
+  await pageB.bringToFront();
+  await pageB.waitForFunction((n) => App.getState().investors.some((i) => i.name === n), "Concurrent A Fund", { timeout: 30000 });
+  const targetId = await page.evaluate(() => App.getState().investors.find((i) => i.name === "Concurrent A Fund").id);
+  await pageB.evaluate((id) => App.commitInvestor(id, { name: "Concurrent B-edit" }), targetId);
+  await waitFor(async () => (await serverInvestors()).some((i) => i.name === "Concurrent B-edit"), 15000, "B edit saved to server");
+  await page.evaluate((id) => App.commitInvestor(id, { name: "Concurrent A-edit" }), targetId);
   await page.waitForSelector("#conflict-backdrop:not(.hidden)", { timeout: 10000 });
-  check("409 conflict shown to second writer", true);
+  check("409 same-field conflict shown to second writer", true);
   const conflictText = await page.textContent("#conflict-text");
-  check("conflict dialog explains choice", conflictText.indexOf("server") !== -1, conflictText);
+  check("conflict dialog explains the clash", conflictText.indexOf("edited the same") !== -1, conflictText);
   await shot(page, "10-conflict");
   await page.click("#conflict-overwrite");
-  await page.waitForFunction(() => /^Saved/.test(document.getElementById("save-status-text").textContent),
-    null, { timeout: 10000 });
+  await waitFor(async () => (await serverInvestors()).some((i) => i.name === "Concurrent A-edit"), 15000, "A edit saved after overwrite");
   check("explicit overwrite resolves conflict", true);
-  const finalData = await page.evaluate(async (token) => {
-    const res = await fetch("http://127.0.0.1:8788/api/data", {
-      headers: { Authorization: "Bearer " + token }
-    });
-    return res.json();
-  }, TOKEN);
-  const names = finalData.data.investors.map((i) => i.name);
-  check("winning write stored", names.indexOf("Concurrent A Fund") !== -1, names.join(","));
-  check("losing write not silently merged", names.indexOf("Concurrent B Fund") === -1, names.join(","));
+  const names = (await serverInvestors()).map((i) => i.name);
+  check("kept the local value on the clashing field", names.indexOf("Concurrent A-edit") !== -1, names.join(","));
+  check("did not keep the other writer's clashing value", names.indexOf("Concurrent B-edit") === -1, names.join(","));
+  check("unrelated records still present after overwrite", names.indexOf("Concurrent B Fund") !== -1, names.join(","));
 
   const filteredErrors = consoleErrors.filter((e) =>
     e.indexOf("favicon") === -1 &&
